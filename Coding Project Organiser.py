@@ -25,11 +25,35 @@ def organise_structure(project_path):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
+#Function moves code files to the 'src' folder
+def move_code_files(project_path):
+    for root, dirs, files in os.walk(project_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            dest_folder = None
+            
+            #Conditional checks for code files
+            if file.endswith('.py'):
+                dest_folder = 'src'
+            elif file.endswith('.html'):
+                dest_folder = 'src'
+            elif file.endswith('.css'):
+                dest_folder = 'src'
+            elif file.endswith('.js'):
+                dest_folder = 'src'
+            elif file.endswith('.cpp'):
+                dest_folder = 'src'
+            
+            if dest_folder:
+                shutil.move(file_path, os.path.join(project_path, dest_folder))
+
+#Function sorts the projects
 def sort_projects(directory):
     for project in os.listdir(directory):
         project_path = os.path.join(directory, project)
         if os.path.isdir(project_path):
             organise_structure(project_path)
+            move_code_files(project_path)
 
 sort_projects(python_project_path)
 sort_projects(html_css_js_project_path)
