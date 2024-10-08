@@ -45,12 +45,13 @@ def move_code_files(project_path):
                 dest_folder = 'src'
             elif file.endswith('.cpp'):
                 dest_folder = 'src'
-            
             #Checks for files for 'doc' folder
-            if file.endswith('.md') or file.endswith('.rst'):
+            elif file.endswith('.md') or file.endswith('.rst'):
                 dest_folder = 'doc'
+            #Checks for files for 'tools' folder
             elif file.endswith('.sh') or file.endswith('.cmd'):
                 dest_folder = 'tools'
+            #Checks for files for the dep folder
             elif file == 'requirements.txt' or file == 'package.json':
                 dest_folder = 'dep'
 
