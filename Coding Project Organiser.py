@@ -56,5 +56,3 @@ def sort_projects(directory):
             move_code_files(project_path)
 
 sort_projects(python_project_path)
-sort_projects(html_css_js_project_path)
-sort_projects(cpp_project_path)
