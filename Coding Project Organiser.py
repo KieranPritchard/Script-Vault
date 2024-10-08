@@ -17,3 +17,20 @@ general_file_structure = [
     "samples",
     "res"
 ]
+
+#function to create structure
+def organise_structure(project_path):
+    for folder in general_file_structure:
+        folder_path = os.path.join(project_path, folder)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+def sort_projects(directory):
+    for project in os.listdir(directory):
+        project_path = os.path.join(directory, project)
+        if os.path.isdir(project_path):
+            organise_structure(project_path)
+
+sort_projects(python_project_path)
+sort_projects(html_css_js_project_path)
+sort_projects(cpp_project_path)
