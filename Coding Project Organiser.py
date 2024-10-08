@@ -34,7 +34,7 @@ def move_code_files(project_path):
             file_path = os.path.join(root, file)
             dest_folder = None
             
-            # Conditional checks for code files
+            # Checks for code files
             if file.endswith('.py'):
                 dest_folder = 'src'
             elif file.endswith('.html'):
@@ -45,7 +45,9 @@ def move_code_files(project_path):
                 dest_folder = 'src'
             elif file.endswith('.cpp'):
                 dest_folder = 'src'
-            elif file.endswith('.md') or file.endswith('.rst'):
+            
+            #Checks for files for 'doc' folder
+            if file.endswith('.md') or file.endswith('.rst'):
                 dest_folder = 'doc'
             elif file.endswith('.sh') or file.endswith('.cmd'):
                 dest_folder = 'tools'
