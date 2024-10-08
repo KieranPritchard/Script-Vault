@@ -71,3 +71,4 @@ def sort_projects(directory):
 
 # Example usage
 sort_projects(python_project_path)
+sort_projects()
