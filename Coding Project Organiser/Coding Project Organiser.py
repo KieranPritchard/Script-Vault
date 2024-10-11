@@ -1,4 +1,3 @@
-from genericpath import isdir
 import os
 import shutil
 
@@ -50,6 +49,8 @@ def sort_and_organise_general_projects(directory):
                     #checks for dependancy files
                     if file == "requirements.txt" or file == "package.json":
                         dest_folder = "dep"
+                    elif file == "Readme.md":
+                        continue
                     else:
                         #gets dictionary name for folder to move to
                         dest_folder = ext_to_folder.get(os.path.splitext(file)[1])
