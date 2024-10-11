@@ -1,8 +1,10 @@
 import os
 import shutil
 
-# Main project directory path
+# Main project directory paths
 python_project_path = "/Users/kieranpritchard/Documents/Coding Projects/Python/Projects"
+html_css_js_project_path = "/Users/kieranpritchard/Documents/Coding Projects/HTML, CSS & Javascript/Projects"
+cpp_project_path = "/Users/kieranpritchard/Documents/Coding Projects/C++/Projects"
 
 # File structure for each programming language
 general_file_structure = [
@@ -17,7 +19,7 @@ general_file_structure = [
 ]
 
 # Function to create structure
-def organise_structure(project_path):
+def organise_general_structure(project_path):
     for folder in general_file_structure:
         folder_path = os.path.join(project_path, folder)
         if not os.path.exists(folder_path):
@@ -61,14 +63,14 @@ def move_code_files(project_path):
                     shutil.move(file_path, dest_path)
                     print(f"Moved {file} to {dest_folder}")
 
-# Function sorts the projects
-def sort_projects(directory):
+# Function sorts the projects with a general file path
+def sort_general_projects(directory):
     for project in os.listdir(directory):
         project_path = os.path.join(directory, project)
         if os.path.isdir(project_path):
-            organise_structure(project_path)
+            organise_general_structure(project_path)
             move_code_files(project_path)
 
 # Example usage
-sort_projects(python_project_path)
-sort_projects()
+sort_general_projects(python_project_path)
+sort_general_projects(html_css_js_project_path)
