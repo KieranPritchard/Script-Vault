@@ -1,3 +1,4 @@
+from genericpath import isdir
 import os
 import shutil
 
@@ -18,59 +19,47 @@ general_file_structure = [
     "res"
 ]
 
-# Function to create structure
-def organise_general_structure(project_path):
-    for folder in general_file_structure:
-        folder_path = os.path.join(project_path, folder)
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-
-# Function moves code files to the 'src' folder
-def move_code_files(project_path):
-    src_folder = os.path.join(project_path, 'src')
-    if not os.path.exists(src_folder):
-        os.makedirs(src_folder)
-    
-    for root, dirs, files in os.walk(project_path):
-        for file in files:
-            file_path = os.path.join(root, file)
-            dest_folder = None
-            
-            # Checks for code files
-            if file.endswith('.py'):
-                dest_folder = 'src'
-            elif file.endswith('.html'):
-                dest_folder = 'src'
-            elif file.endswith('.css'):
-                dest_folder = 'src'
-            elif file.endswith('.js'):
-                dest_folder = 'src'
-            elif file.endswith('.cpp'):
-                dest_folder = 'src'
-            #Checks for files for 'doc' folder
-            elif file.endswith('.md') or file.endswith('.rst'):
-                dest_folder = 'doc'
-            #Checks for files for 'tools' folder
-            elif file.endswith('.sh') or file.endswith('.cmd'):
-                dest_folder = 'tools'
-            #Checks for files for the dep folder
-            elif file == 'requirements.txt' or file == 'package.json':
-                dest_folder = 'dep'
-
-            if dest_folder:
-                dest_path = os.path.join(project_path, dest_folder, file)
-                if not os.path.exists(dest_path):  # Avoid deletion by checking if file exists
-                    shutil.move(file_path, dest_path)
-                    print(f"Moved {file} to {dest_folder}")
-
-# Function sorts the projects with a general file path
-def sort_general_projects(directory):
+def sort_and_organise_general_projects(directory):
     for project in os.listdir(directory):
-        project_path = os.path.join(directory, project)
-        if os.path.isdir(project_path):
-            organise_general_structure(project_path)
-            move_code_files(project_path)
+        project_path = os.path.join(directory,project)
 
-# Example usage
-sort_general_projects(python_project_path)
-sort_general_projects(html_css_js_project_path)
+        #checks project path for if it exists
+        if os.path.isdir(project_path):
+            #creates file structure
+            for folder in general_file_structure:
+                folder_path = os.path.join(project_path,folder)
+                os.makedirs(folder_path,exist_ok=True)
+            
+            #move files to their proper folders
+            for root, dirs, files in os.walk(project_path):
+                for file in files:
+                    file_path = os.path.join(root,file)
+                    
+                    #groups file type to a folder
+                    ext_to_folder = {
+                        ".py": "src",
+                        ".html": "src",
+                        ".css": "src",
+                        ".js": "src",
+                        ".cpp": "src",
+                        ".md": "doc",
+                        ".rst": "doc",
+                        ".sh": "tools",
+                        ".cmd": "tools",
+                    }
+                    #checks for dependancy files
+                    if file == "requirements.txt" or file == "package.json":
+                        dest_folder = "dep"
+                    else:
+                        #gets dictionary name for folder to move to
+                        dest_folder = ext_to_folder.get(os.path.splitext(file)[1])
+
+                    if dest_folder:
+                        dest_path = os.path.join(project_path, dest_folder,file)
+                        if not os.path.exists(dest_path): #this avoids accidental deletion
+                            shutil.move(file_path,dest_path)
+
+# Sorts the different projects out.
+sort_and_organise_general_projects(python_project_path)
+sort_and_organise_general_projects(html_css_js_project_path)
+sort_and_organise_general_projects(cpp_project_path)
