@@ -33,6 +33,15 @@ def sort_and_organise_general_projects(directory):
 
         #checks project path for if it exists
         if os.path.isdir(project_path):
+            #Copys special files
+            shutil.copyfile(readme_template,project_path)
+            shutil.copyfile(changelog_template,project_path)
+            shutil.copyfile(security_template, project_path)
+            shutil.copyfile(license_template,project_path)
+            shutil.copyfile(codeowners_template, project_path)
+            shutil.copyfile(issue_template, project_path)
+            shutil.copyfile(pull_request_template,project_path)
+
             #creates file structure
             for folder in general_file_structure:
                 folder_path = os.path.join(project_path,folder)
@@ -69,7 +78,7 @@ def sort_and_organise_general_projects(directory):
                         if not os.path.exists(dest_path): #this avoids accidental deletion
                             shutil.move(file_path,dest_path)
 
-# Sorts the different projects out.
+# Sorts the different general projects out.
 sort_and_organise_general_projects(python_project_path)
 sort_and_organise_general_projects(html_css_js_project_path)
 sort_and_organise_general_projects(cpp_project_path)
