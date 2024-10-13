@@ -6,7 +6,7 @@ python_project_path = "/Users/kieranpritchard/Documents/Coding Projects/Python/P
 html_css_js_project_path = "/Users/kieranpritchard/Documents/Coding Projects/HTML, CSS & Javascript/Projects"
 cpp_project_path = "/Users/kieranpritchard/Documents/Coding Projects/C++/Projects"
 
-#File template paths
+# Special file template paths
 readme_template = ""
 changelog_template = ""
 security_template = ""
