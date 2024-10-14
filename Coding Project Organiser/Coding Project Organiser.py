@@ -78,7 +78,17 @@ def sort_and_organise_general_projects(directory):
                         if not os.path.exists(dest_path): #this avoids accidental deletion
                             shutil.move(file_path,dest_path)
 
-# Sorts the different general projects out.
-sort_and_organise_general_projects(python_project_path)
-sort_and_organise_general_projects(html_css_js_project_path)
-sort_and_organise_general_projects(cpp_project_path)
+# Sets the script to run automatically when run
+running_automation = False
+
+#Checks if script is automatically
+if running_automation == True:
+    while running_automation == True:
+        # Sorts the different general projects out as automation.
+        sort_and_organise_general_projects(python_project_path)
+        sort_and_organise_general_projects(html_css_js_project_path)
+        sort_and_organise_general_projects(cpp_project_path)
+else:
+    sort_and_organise_general_projects(python_project_path)
+    sort_and_organise_general_projects(html_css_js_project_path)
+    sort_and_organise_general_projects(cpp_project_path)
