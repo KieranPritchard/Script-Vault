@@ -15,6 +15,8 @@ codeowners_template = ""
 issue_template = ""
 pull_request_template = ""
 
+special_files = [readme_template, changelog_template, security_template, license_template, codeowners_template, issue_template, pull_request_template]
+
 # File structure for each programming language
 general_file_structure = [
     "test",
@@ -31,9 +33,9 @@ def sort_and_organise_general_projects(directory):
     for project in os.listdir(directory):
         project_path = os.path.join(directory,project)
 
-        #checks project path for if it exists
+        # Checks project path for if it exists
         if os.path.isdir(project_path):
-            #Copys special files
+            # Copys special files
             shutil.copyfile(readme_template,project_path)
             shutil.copyfile(changelog_template,project_path)
             shutil.copyfile(security_template, project_path)
@@ -42,17 +44,17 @@ def sort_and_organise_general_projects(directory):
             shutil.copyfile(issue_template, project_path)
             shutil.copyfile(pull_request_template,project_path)
 
-            #creates file structure
+            # Creates file structure
             for folder in general_file_structure:
                 folder_path = os.path.join(project_path,folder)
                 os.makedirs(folder_path,exist_ok=True)
             
-            #move files to their proper folders
+            # Move files to their proper folders
             for root, dirs, files in os.walk(project_path):
                 for file in files:
                     file_path = os.path.join(root,file)
                     
-                    #groups file type to a folder
+                    # Groups file type to a folder
                     ext_to_folder = {
                         ".py": "src",
                         ".html": "src",
@@ -64,24 +66,24 @@ def sort_and_organise_general_projects(directory):
                         ".sh": "tools",
                         ".cmd": "tools",
                     }
-                    #checks for dependancy files
+                    # Checks for dependancy files
                     if file == "requirements.txt" or file == "package.json":
                         dest_folder = "dep"
                     elif file == "Readme.md":
                         continue
                     else:
-                        #gets dictionary name for folder to move to
+                        # Gets dictionary name for folder to move to
                         dest_folder = ext_to_folder.get(os.path.splitext(file)[1])
 
                     if dest_folder:
                         dest_path = os.path.join(project_path, dest_folder,file)
-                        if not os.path.exists(dest_path): #this avoids accidental deletion
+                        if not os.path.exists(dest_path): # This avoids accidental deletion
                             shutil.move(file_path,dest_path)
 
 # Sets the script to run automatically when run
 running_automation = False
 
-#Checks if script is automatically
+# Checks if script is automatically
 if running_automation == True:
     while running_automation == True:
         # Sorts the different general projects out as automation.
