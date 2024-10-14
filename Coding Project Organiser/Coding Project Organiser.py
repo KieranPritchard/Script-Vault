@@ -36,13 +36,8 @@ def sort_and_organise_general_projects(directory):
         # Checks project path for if it exists
         if os.path.isdir(project_path):
             # Copys special files
-            shutil.copyfile(readme_template,project_path)
-            shutil.copyfile(changelog_template,project_path)
-            shutil.copyfile(security_template, project_path)
-            shutil.copyfile(license_template,project_path)
-            shutil.copyfile(codeowners_template, project_path)
-            shutil.copyfile(issue_template, project_path)
-            shutil.copyfile(pull_request_template,project_path)
+            for item in special_files:
+                shutil.copyfile(item,project_path)
 
             # Creates file structure
             for folder in general_file_structure:
