@@ -6,6 +6,8 @@ python_project_path = "/Users/kieranpritchard/Documents/Coding Projects/Python/P
 html_css_js_project_path = "/Users/kieranpritchard/Documents/Coding Projects/HTML, CSS & Javascript/Projects"
 cpp_project_path = "/Users/kieranpritchard/Documents/Coding Projects/C++/Projects"
 
+main_project_paths = [python_project_path,html_css_js_project_path,cpp_project_path]
+
 # Special file template paths
 readme_template = "Script-Vault/Coding Project Organiser/Templates/ReadMe.md"
 changelog_template = "Script-Vault/Coding Project Organiser/Templates/CHANGELOG.MD"
@@ -84,10 +86,8 @@ running_automation = False
 if running_automation == True:
     while running_automation == True:
         # Sorts the different general projects out as automation.
-        sort_and_organise_general_projects(python_project_path)
-        sort_and_organise_general_projects(html_css_js_project_path)
-        sort_and_organise_general_projects(cpp_project_path)
+        for path in main_project_paths:
+            sort_and_organise_general_projects(path)
 else:
-    sort_and_organise_general_projects(python_project_path)
-    sort_and_organise_general_projects(html_css_js_project_path)
-    sort_and_organise_general_projects(cpp_project_path)
+    for path in main_project_paths:
+            sort_and_organise_general_projects(path)
