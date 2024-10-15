@@ -3,9 +3,12 @@
 ### Description
 - Briefly explain the changes you've made and why they are nessary.
 
+---
+
 ### Related Issue
 - Link to any related issues using '#<issue_numbers>'.
 
+---
 
 ### Checklist
 - [ ] I have read the [contributing guidelines](CONTRIBUTING.md).
@@ -15,5 +18,9 @@
 - [ ] I have made corresponding changes to the documentation.
 - [ ] My changes generate no new warnings.
 
+---
+
 ### Additional Notes
 - Add any other information or comments that might be useful for the reviewer.
+
+---
