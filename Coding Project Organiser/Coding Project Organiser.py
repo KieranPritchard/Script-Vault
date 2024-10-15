@@ -37,7 +37,9 @@ def sort_and_organise_general_projects(directory):
         if os.path.isdir(project_path):
             # Copys special files
             for item in special_files:
-                shutil.copyfile(item,project_path)
+                dest_path = os.path.join(project_path, os.path.basename(item))
+                if os.path.exists(item) and not os.path.exists(dest_path):
+                    shutil.copyfile(item)
 
             # Creates file structure
             for folder in general_file_structure:
