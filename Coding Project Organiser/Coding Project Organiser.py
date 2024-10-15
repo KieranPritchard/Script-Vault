@@ -7,13 +7,13 @@ html_css_js_project_path = "/Users/kieranpritchard/Documents/Coding Projects/HTM
 cpp_project_path = "/Users/kieranpritchard/Documents/Coding Projects/C++/Projects"
 
 # Special file template paths
-readme_template = ""
-changelog_template = ""
-security_template = ""
-license_template = ""
-codeowners_template = ""
-issue_template = ""
-pull_request_template = ""
+readme_template = "Script-Vault/Coding Project Organiser/Templates/ReadMe.md"
+changelog_template = "Script-Vault/Coding Project Organiser/Templates/CHANGELOG.MD"
+security_template = "Script-Vault/Coding Project Organiser/Templates/SECURITY.md"
+license_template = "Script-Vault/Coding Project Organiser/Templates/LICENSE.md"
+codeowners_template = "Script-Vault/Coding Project Organiser/Templates/CODEOWNERS.txt"
+issue_template = "Script-Vault/Coding Project Organiser/Templates/ISSUE_TEMPLATE.md"
+pull_request_template = "Script-Vault/Coding Project Organiser/Templates/PULL_REQUEST_TEMPLATE.md"
 
 special_files = [readme_template, changelog_template, security_template, license_template, codeowners_template, issue_template, pull_request_template]
 
@@ -39,7 +39,7 @@ def sort_and_organise_general_projects(directory):
             for item in special_files:
                 dest_path = os.path.join(project_path, os.path.basename(item))
                 if os.path.exists(item) and not os.path.exists(dest_path):
-                    shutil.copyfile(item)
+                    shutil.copyfile(item,project_path)
 
             # Creates file structure
             for folder in general_file_structure:
