@@ -33,6 +33,12 @@ general_file_structure = [
 ]
 
 def sort_and_organise_general_projects(directory):
+    blacklist_contents = []
+    
+    with open("/Users/kieranpritchard/Documents/Coding Projects/Script-Vault/Coding Project Organiser/Blacklist.txt") as blacklist:
+        for item in blacklist:
+            blacklist_contents.append(item)
+
     for project in os.listdir(directory):
         project_path = os.path.join(directory, project)
         # Checks project path for if it exists
