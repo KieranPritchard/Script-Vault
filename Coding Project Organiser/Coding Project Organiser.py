@@ -32,6 +32,20 @@ general_file_structure = [
     "res"
 ]
 
+# Functions to sort general projects
+
+def load_blacklist(blacklist_path):
+    blacklist_contents = []
+
+    with open(blacklist_path) as blacklist:
+        for item in blacklist:
+            blacklist_contents.append(item)
+
+    return blacklist_contents
+
+
+
+
 def sort_and_organise_general_projects(directory):
     
     # Opens and sorts blacklist
