@@ -33,6 +33,8 @@ general_file_structure = [
 ]
 
 def sort_and_organise_general_projects(directory):
+    
+    # Opens and sorts blacklist
     blacklist_contents = []
     
     with open("/Users/kieranpritchard/Documents/Coding Projects/Script-Vault/Coding Project Organiser/Blacklist.txt") as blacklist:
@@ -41,17 +43,23 @@ def sort_and_organise_general_projects(directory):
 
     for project in os.listdir(directory):
         project_path = os.path.join(directory, project)
+        
         # Checks project path for if it exists
         if os.path.isdir(project_path):
+            
             # Copies special files
             for item in special_files:
+                
                 dest_path = os.path.join(project_path, os.path.basename(item))
+                
                 if os.path.exists(item) and not os.path.exists(dest_path):
                     shutil.copyfile(item, dest_path)
+            
             # Creates file structure
             for folder in general_file_structure:
                 folder_path = os.path.join(project_path, folder)
                 os.makedirs(folder_path, exist_ok=True)
+            
             # Move files to their proper folders
             for root, dirs, files in os.walk(project_path):
                 for file in files:
@@ -74,10 +82,14 @@ def sort_and_organise_general_projects(directory):
                     elif file == "Readme.md":
                         continue
                     else:
+                        
                         # Gets dictionary name for folder to move to
                         dest_folder = ext_to_folder.get(os.path.splitext(file)[1])
+                    
                     if dest_folder:
+                        
                         dest_path = os.path.join(project_path, dest_folder, file)
+                        
                         if not os.path.exists(dest_path):  # This avoids accidental deletion
                             shutil.move(file_path, dest_path)
 
