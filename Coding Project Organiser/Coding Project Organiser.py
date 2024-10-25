@@ -43,7 +43,13 @@ def load_blacklist(blacklist_path):
 
     return blacklist_contents
 
+def create_special_files(project_path):
+    for item in special_files:
+        
+        dest_path = os.path.join(project_path, os.path.basename(item))
 
+        if os.path.exists(item) and not os.path.exists(dest_path):
+            shutil.copyfile(item, dest_path)
 
 
 def sort_and_organise_general_projects(directory):
