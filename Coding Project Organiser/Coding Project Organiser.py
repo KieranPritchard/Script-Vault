@@ -44,54 +44,58 @@ def sort_and_organise_general_projects(directory):
     for project in os.listdir(directory):
         project_path = os.path.join(directory, project)
         
-        # Checks project path for if it exists
-        if os.path.isdir(project_path):
+        if project_path not in blacklist_contents:
+
+            # Checks project path for if it exists
+            if os.path.isdir(project_path):
             
-            # Copies special files
-            for item in special_files:
+                # Copies special files
+                for item in special_files:
                 
-                dest_path = os.path.join(project_path, os.path.basename(item))
+                    dest_path = os.path.join(project_path, os.path.basename(item))
                 
-                if os.path.exists(item) and not os.path.exists(dest_path):
-                    shutil.copyfile(item, dest_path)
+                    if os.path.exists(item) and not os.path.exists(dest_path):
+                        shutil.copyfile(item, dest_path)
             
-            # Creates file structure
-            for folder in general_file_structure:
-                folder_path = os.path.join(project_path, folder)
-                os.makedirs(folder_path, exist_ok=True)
+                # Creates file structure
+                for folder in general_file_structure:
+                    folder_path = os.path.join(project_path, folder)
+                    os.makedirs(folder_path, exist_ok=True)
             
-            # Move files to their proper folders
-            for root, dirs, files in os.walk(project_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    # Groups file type to a folder
-                    ext_to_folder = {
-                        ".py": "src",
-                        ".html": "src",
-                        ".css": "src",
-                        ".js": "src",
-                        ".cpp": "src",
-                        ".md": "doc",
-                        ".rst": "doc",
-                        ".sh": "tools",
-                        ".cmd": "tools",
-                    }
-                    # Checks for dependency files
-                    if file == "requirements.txt" or file == "package.json":
-                        dest_folder = "dep"
-                    elif file == "Readme.md":
-                        continue
-                    else:
+                # Move files to their proper folders
+                for root, dirs, files in os.walk(project_path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        # Groups file type to a folder
+                        ext_to_folder = {
+                            ".py": "src",
+                            ".html": "src",
+                            ".css": "src",
+                            ".js": "src",
+                            ".cpp": "src",
+                            ".md": "doc",
+                            ".rst": "doc",
+                            ".sh": "tools",
+                            ".cmd": "tools",
+                        }
+                        # Checks for dependency files
+                        if file == "requirements.txt" or file == "package.json":
+                            dest_folder = "dep"
+                        elif file == "Readme.md":
+                            continue
+                        else:
                         
-                        # Gets dictionary name for folder to move to
-                        dest_folder = ext_to_folder.get(os.path.splitext(file)[1])
+                            # Gets dictionary name for folder to move to
+                            dest_folder = ext_to_folder.get(os.path.splitext(file)[1])
                     
-                    if dest_folder:
+                        if dest_folder:
                         
-                        dest_path = os.path.join(project_path, dest_folder, file)
+                            dest_path = os.path.join(project_path, dest_folder, file)
                         
-                        if not os.path.exists(dest_path):  # This avoids accidental deletion
-                            shutil.move(file_path, dest_path)
+                            if not os.path.exists(dest_path):  # This avoids accidental deletion
+                                shutil.move(file_path, dest_path)
+        else:
+            continue
 
 # Sets the script to run automatically when run
 running_automation = False
