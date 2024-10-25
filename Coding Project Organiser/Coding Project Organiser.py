@@ -7,6 +7,9 @@ html_css_js_project_path = "/Users/kieranpritchard/Documents/Coding Projects/HTM
 cpp_project_path = "/Users/kieranpritchard/Documents/Coding Projects/C++/Projects"
 main_project_paths = [python_project_path, html_css_js_project_path, cpp_project_path]
 
+# Path to blacklist
+blacklist = "/Users/kieranpritchard/Documents/Coding Projects/Script-Vault/Coding Project Organiser/Blacklist.txt"
+
 # Special file template paths
 readme_template = "Script-Vault/Coding Project Organiser/Templates/ReadMe.md"
 changelog_template = "Script-Vault/Coding Project Organiser/Templates/CHANGELOG.MD"
