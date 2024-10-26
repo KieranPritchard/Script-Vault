@@ -1,16 +1,16 @@
 import os
 import shutil
 
-# Main project directory paths
+# Main project directory paths.
 python_project_path = "/Users/kieranpritchard/Documents/Coding Projects/Python/Projects"
 html_css_js_project_path = "/Users/kieranpritchard/Documents/Coding Projects/HTML, CSS & Javascript/Projects"
 cpp_project_path = "/Users/kieranpritchard/Documents/Coding Projects/C++/Projects"
 main_project_paths = [python_project_path, html_css_js_project_path, cpp_project_path]
 
-# Path to blacklist
+# Path to blacklist.
 blacklist = "/Users/kieranpritchard/Documents/Coding Projects/Script-Vault/Coding Project Organiser/Blacklist.txt"
 
-# Special file template paths
+# Special file template paths.
 readme_template = "Script-Vault/Coding Project Organiser/Templates/ReadMe.md"
 changelog_template = "Script-Vault/Coding Project Organiser/Templates/CHANGELOG.MD"
 security_template = "Script-Vault/Coding Project Organiser/Templates/SECURITY.md"
@@ -20,7 +20,7 @@ issue_template = "Script-Vault/Coding Project Organiser/Templates/ISSUE_TEMPLATE
 pull_request_template = "Script-Vault/Coding Project Organiser/Templates/PULL_REQUEST_TEMPLATE.md"
 special_files = [readme_template, changelog_template, security_template, license_template, codeowners_template, issue_template, pull_request_template]
 
-# File structure for each programming language
+# File structure for each programming language.
 general_file_structure = [
     "test",
     "src",
@@ -32,7 +32,7 @@ general_file_structure = [
     "res"
 ]
 
-# Functions to sort general projects
+# Functions to sort general projects.
 
 def load_blacklist(blacklist_path):
     blacklist_contents = []
@@ -69,23 +69,23 @@ def move_files_to_general_folders(project_path):
         ".cmd": "tools",
     }
     
-    # Loops
+    # Loops to move files.
     for root, dirs, files in os.walk(project_path):
         for file in files:
             file_path = os.path.join(root,file)
             
-            #Checks for certain files
+            #Checks for certain files.
             if file == "requirements.txt" or file == "package.json":
                 dest_folder = "dep"
             elif file == "Readme.md":
                 continue
             else:                
-                # Gets dictionary name for folder to move to
+                # Gets dictionary name for folder to move to.
                 dest_folder = type_to_folder.get(os.path.splitext(file)[1])
                     
             if dest_folder:
                 dest_path = os.path.join(project_path, dest_folder, file)
-            if not os.path.exists(dest_path):  # This avoids accidental deletion
+            if not os.path.exists(dest_path):  # This avoids accidental deletion.
                 shutil.move(file_path, dest_path)
 
 
@@ -104,13 +104,13 @@ def sort_and_organise_general_projects(directory):
             continue
 
 
-# Sets the script to run automatically when run
+# Sets the script to run automatically when run.
 running_automation = False
 
-# Checks if script is running automatically
+# Checks if script is running automatically.
 if running_automation:
     while running_automation:
-        # Sorts the different general projects out as automation
+        # Sorts the different general projects out as automation.
         for path in main_project_paths:
             sort_and_organise_general_projects(path)
 else:
