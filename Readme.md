@@ -22,6 +22,6 @@ Each project has its own "ReadMe.md", which you can find the links too in the co
 
 |Automation|Link to ReadMe|
 |---|---|
-|Coding Project Organiser|[Click Me]()|
+|Coding Project Organiser|[Click Me](https://github.com/KieranPritchard/Script-Vault/blob/main/File%20Management%20Scripts/Coding%20Project%20Organiser/README.md)|
 
 ## License
