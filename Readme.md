@@ -24,10 +24,4 @@ Each project has its own "ReadMe.md", which you can find the links too in the co
 |---|---|
 |Coding Project Organiser|[Click Me]()|
 
-## How to Install and Run the Project
-
-## How to Use the Project
-
-## Tests
-
-## Licenses
+## License
