@@ -22,6 +22,7 @@ if ! command -v g++ &> /dev/null; then
   exit 1
 else
   echo "Error encountered: Compilation failed."
+  exit 1
 fi
 
 # Compiles code with g++
