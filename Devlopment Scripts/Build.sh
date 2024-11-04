@@ -16,3 +16,13 @@ if [ ! -f "$filename"]; then
   exit 1
 fi
 
+# This checks if g++ installed
+if ! command -v g++ &> /dev/null; then
+  echo "Error encountered: g++ not installed. Please install g++ then run again"
+  exit 1
+fi
+
+# Compiles code with g++
+echo "Compiling $filename..."
+if g++ "$filename" -o "$executable_name"; then
+  echo "Successful compilation of $filename. Output: $executable_name"
