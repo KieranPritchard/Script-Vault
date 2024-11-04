@@ -20,6 +20,8 @@ fi
 if ! command -v g++ &> /dev/null; then
   echo "Error encountered: g++ not installed. Please install g++ then run again"
   exit 1
+else
+  echo "Error encountered: Compilation failed."
 fi
 
 # Compiles code with g++
