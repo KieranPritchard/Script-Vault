@@ -1,4 +1,4 @@
-# Script: Coding Project Organiser
+# Script: Build
 
 ## Description of Script:
 
