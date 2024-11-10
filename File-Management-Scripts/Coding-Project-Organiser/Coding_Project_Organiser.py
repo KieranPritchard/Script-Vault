@@ -8,7 +8,7 @@ cpp_project_path = "/Users/kieranpritchard/Documents/Coding Projects/C++/Project
 main_project_paths = [python_project_path, html_css_js_project_path, cpp_project_path]
 
 # Path to blacklist.
-blacklist = "/Users/kieranpritchard/Documents/Coding Projects/Script-Vault/Coding Project Organiser/Blacklist.txt"
+blacklist = "/Users/kieranpritchard/Documents/Coding Projects/Script-Vault/File-Management-Scripts/Coding-Project-Organiser/Blacklist.txt"
 
 # Special file template paths.
 readme_template = "Script-Vault/Coding Project Organiser/Templates/ReadMe.md"
@@ -39,22 +39,34 @@ def load_blacklist(blacklist_path):
 
     with open(blacklist_path) as blacklist:
         for item in blacklist:
-            blacklist_contents.append(item)
+            blacklist_contents.append(item.strip())
 
     return blacklist_contents
 
+def cleanup_ds_store(project_path):
+    for root, dirs, files in os.walk(project_path):
+        if ".DS_Store" in files:
+            os.remove(os.path.join(root, ".DS_Store"))
+
 def create_general_special_files(project_path):
     for item in special_files:
-        
         dest_path = os.path.join(project_path, os.path.basename(item))
 
         if os.path.exists(item) and not os.path.exists(dest_path):
             shutil.copyfile(item, dest_path)
 
 def create_general_file_structure(project_path):
+    # Ensure that we skip .DS_Store files
     for folder in general_file_structure:
         folder_path = os.path.join(project_path, folder)
-        os.makedirs(folder_path,exist_ok=True)
+        
+        # Skip if the path is a .DS_Store file or if folder_path already exists as a file
+        if ".DS_Store" in folder_path:
+            continue
+        
+        # Create the directory if it doesn't already exist
+        os.makedirs(folder_path, exist_ok=True)
+
 
 def move_files_to_general_folders(project_path):
     type_to_folder = {
@@ -72,47 +84,44 @@ def move_files_to_general_folders(project_path):
     # Loops to move files.
     for root, dirs, files in os.walk(project_path):
         for file in files:
-            file_path = os.path.join(root,file)
+            file_path = os.path.join(root, file)
             
-            #Checks for certain files.
+            # Checks for certain files.
             if file == "requirements.txt" or file == "package.json":
                 dest_folder = "dep"
             elif file == "Readme.md":
                 continue
-            else:                
+            else:
                 # Gets dictionary name for folder to move to.
                 dest_folder = type_to_folder.get(os.path.splitext(file)[1])
                     
             if dest_folder:
                 dest_path = os.path.join(project_path, dest_folder, file)
-            if not os.path.exists(dest_path):  # This avoids accidental deletion.
-                shutil.move(file_path, dest_path)
+                
+                if not os.path.exists(dest_path):  # This avoids accidental deletion.
+                    shutil.move(file_path, dest_path)
 
-
-def sort_and_organise_general_projects(directory):
-
-    blacklist_contents = load_blacklist()
+def sort_and_organise_general_projects(directory, blacklist):
+    blacklist_contents = load_blacklist(blacklist)
     
     for project in os.listdir(directory):
         project_path = os.path.join(directory, project)
         
         if project_path not in blacklist_contents:
+            cleanup_ds_store(project_path)
             create_general_special_files(project_path)
             create_general_file_structure(project_path)
             move_files_to_general_folders(project_path)
         else:
             continue
 
-
 # Sets the script to run automatically when run.
-running_automation = False
+running_automation = True  # Set to True to run automatically
 
 # Checks if script is running automatically.
 if running_automation:
-    while running_automation:
-        # Sorts the different general projects out as automation.
-        for path in main_project_paths:
-            sort_and_organise_general_projects(path)
+    for path in main_project_paths:
+        sort_and_organise_general_projects(path, blacklist)
 else:
     for path in main_project_paths:
-        sort_and_organise_general_projects(path)
+        sort_and_organise_general_projects(path, blacklist)
