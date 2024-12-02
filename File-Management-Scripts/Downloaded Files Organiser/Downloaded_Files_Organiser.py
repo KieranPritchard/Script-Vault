@@ -24,3 +24,9 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Documents")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Documents")
+    else:
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
+            shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
+        else: 
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
+            shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
