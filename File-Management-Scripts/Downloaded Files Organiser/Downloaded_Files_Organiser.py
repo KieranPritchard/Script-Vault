@@ -11,7 +11,7 @@ for file in os.listdir(downloads_folder_path):
     file_path = os.path.splitext(file)[1]
 
     # Checks for images in the downloads folder
-    if file_path == "jpg" or file_path == "png":
+    if file_path == "jpg" or file_path == "jpeg" or file_path == "png" or file_path == "gif" or file_path == "bmp" or file_path == "svg":
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Images"):
             shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Images")
         else:
