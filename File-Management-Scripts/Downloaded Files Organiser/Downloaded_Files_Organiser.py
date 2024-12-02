@@ -17,3 +17,10 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Images")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Images")
+    # Checks for documents in the downloads folder
+    elif file_path == "pdf" or file_path == "docx" or file_path == "doc" or file_path == "txt" or file_path == "odt" or file_path == "rtf":
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Documents"):
+            shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Documents")
+        else:
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Documents")
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Documents")
