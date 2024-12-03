@@ -29,8 +29,8 @@ for file in os.listdir(downloads_folder_path):
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Spreadsheets"):
             shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Spreadsheets")
         else:
-            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
-            shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Spreadsheets")
+            shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Spreadsheets")
     # Checks for presentations in the downloads folder
     elif file_path == "ppt" or file_path == "pptx" or file_path == "odp":
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Presentations"):
