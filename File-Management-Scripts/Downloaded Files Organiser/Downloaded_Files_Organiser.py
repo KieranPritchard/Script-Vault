@@ -31,6 +31,13 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
             shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
+    # Checks for presentations in the downloads folder
+    elif file_path == "ppt" or file_path == "pptx" or file_path == "odp":
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Presentations"):
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Presentations")
+        else:
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Presentations")
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Presentations")
     else:
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
             shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
