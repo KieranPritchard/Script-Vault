@@ -24,6 +24,13 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Documents")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Documents")
+    # Checks for spreadsheets in the downloads folder
+    elif file_path == "xls" or file_path == "xlsx" or file_path == "csv" or file_path == "ods":
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Spreadsheets"):
+            shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Spreadsheets")
+        else:
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
+            shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
     else:
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
             shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
