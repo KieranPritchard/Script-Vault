@@ -45,6 +45,13 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Audio")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Audio")
+    # Checks for video files in the downloads folder
+    elif file_path == "mp4" or file_path == "avi" or file_path == "mov" or file_path == "mkv" or file_path == "wmv":
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Vidio"):
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Vidio")
+        else:
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Vidio")
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Vidio")
     # Moves any unspecified file type to a special folder
     else:
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
