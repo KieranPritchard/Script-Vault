@@ -45,6 +45,7 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Audio")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Audio")
+    # Moves any unspecified file type to a special folder
     else:
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
             shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
