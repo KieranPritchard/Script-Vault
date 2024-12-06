@@ -38,6 +38,13 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Presentations")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Presentations")
+    # Checks for audio files in the downloads folder
+    elif file_path == "mp3" or file_path == "wav" or file_path == "aac" or file_path == "flac":
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Audio"):
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Audio")
+        else:
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Audio")
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Audio")
     else:
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
             shutil.move(file,"/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified")
