@@ -73,6 +73,7 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Web Devlopement")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Web Devlopement")
+    # Checks for programming files in the downloads folder
     elif file_path == "py" or file_path == "java" or file_path == "cpp" or file_path == "js" or file_path == "rb":
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Programming"):
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Programming")
