@@ -59,6 +59,7 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Compressed Files")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Compressed Files")
+    # Checks for executable files in the downloads folder
     elif file_path == "exe" or file_path == "bat" or file_path == "sh" or file_path == "msi":
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Executables"):
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Executables")
