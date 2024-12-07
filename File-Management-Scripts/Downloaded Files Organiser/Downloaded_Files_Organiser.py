@@ -52,6 +52,13 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Vidio")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Vidio")
+    # Checks for compressed files in the downloads folder
+    elif file_path == "zip" or file_path == "rar" or file_path == "7z" or file_path == "tar" or file_path == "gz":
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Compressed Files"):
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Compressed Files")
+        else:
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Compressed Files")
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Compressed Files")
     # Moves any unspecified file type to a special folder
     else:
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
