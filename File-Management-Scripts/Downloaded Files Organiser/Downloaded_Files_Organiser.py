@@ -66,6 +66,13 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Executables")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Executables")
+    # Checks for web development files in the downloads folder
+    elif file_path == "html" or file_path == "css" or file_path == "js" or file_path == "php" or file_path == "xml":
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Web Devlopement"):
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Web Devlopment")
+        else:
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Web Devlopement")
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Web Devlopement")
     # Moves any unspecified file type to a special folder
     else:
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
