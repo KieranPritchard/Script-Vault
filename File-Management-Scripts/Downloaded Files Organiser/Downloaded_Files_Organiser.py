@@ -80,6 +80,12 @@ for file in os.listdir(downloads_folder_path):
         else:
             os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/Programming")
             shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/Programming")
+    elif file_path == "dll" or file_path == "sys" or file_path == "log" or file_path == "ini":
+        if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/System Files"):
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/System Files")
+        else:
+            os.makedirs("/Users/kieranpritchard/Documents/Sorted Downloads/System Files")
+            shutil.move(file, "/Users/kieranpritchard/Documents/Sorted Downloads/System Files")
     # Moves any unspecified file type to a special folder
     else:
         if os.path.exists("/Users/kieranpritchard/Documents/Sorted Downloads/Unspecified"):
