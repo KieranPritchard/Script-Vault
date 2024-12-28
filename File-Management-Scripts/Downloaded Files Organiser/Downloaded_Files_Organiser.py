@@ -48,11 +48,11 @@ def move_files_to_folder(downloads_folder_path, sorted_files_location):
                 shutil.move(file, sorted_files_location + "/Audio")
         # Checks for video files in the downloads folder
         elif file_path == "mp4" or file_path == "avi" or file_path == "mov" or file_path == "mkv" or file_path == "wmv":
-            if os.path.exists(sorted_files_location + "/Vidio"):
-                shutil.move(file, sorted_files_location + "/Vidio")
+            if os.path.exists(sorted_files_location + "/Video"):
+                shutil.move(file, sorted_files_location + "/Video")
             else:
-                os.makedirs(sorted_files_location + "/Vidio")
-                shutil.move(file, sorted_files_location + "/Vidio")
+                os.makedirs(sorted_files_location + "/Video")
+                shutil.move(file, sorted_files_location + "/Video")
         # Checks for compressed files in the downloads folder
         elif file_path == "zip" or file_path == "rar" or file_path == "7z" or file_path == "tar" or file_path == "gz":
             if os.path.exists(sorted_files_location + "/Compressed Files"):
