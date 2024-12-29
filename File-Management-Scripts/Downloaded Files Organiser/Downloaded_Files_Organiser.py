@@ -1,5 +1,6 @@
 import os
 import shutil
+import json
 
 # Main varibles to make the script work
 downloads_folder_path = "/Users/kieranpritchard/Downloads"
