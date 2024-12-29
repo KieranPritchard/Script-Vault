@@ -2,10 +2,6 @@ import os
 import shutil
 import json
 
-# Main varibles to make the script work
-downloads_folder_path = "/Users/kieranpritchard/Downloads"
-sorted_files_location = "/Users/kieranpritchard/Documents/Sorted Downloads"
-
 def move_files_to_folder(downloads_folder_path, sorted_files_location):
     # Loops through files to their file path
     for file in os.listdir(downloads_folder_path):
@@ -97,5 +93,16 @@ def move_files_to_folder(downloads_folder_path, sorted_files_location):
                 os.makedirs(sorted_files_location + "/Unspecified")
                 shutil.move(file,sorted_files_location + "/Unspecified")
 
-if __name__ == "__main__":
+def main():
+    config_file = "config.json"
+    
+    with open(config_file, "r") as config_file:
+        config_data = json.load(config_file)
+
+        downloads_folder_path = config_data["downloads_folder_path"]
+        sorted_files_location = config_data["sorted_files_location"]
+
     move_files_to_folder(downloads_folder_path,sorted_files_location)
+
+if __name__ == "__main__":
+    main()
