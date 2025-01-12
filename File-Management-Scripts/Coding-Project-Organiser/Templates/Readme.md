@@ -11,6 +11,22 @@
 
 ## Project Description
 
+### Objective
+
+### Features
+
+### Technologies and Tools Used
+
+* **Language:**
+* **Frameworks/Librarys:** 
+* **Tools:** 
+
+### Challenges Faced
+
+### Outcome
+
+### Next Steps
+
 ## Table of Contents (Optional)
 
 ## How to Install and Run the Project
