@@ -1,6 +1,7 @@
 import os
 import shutil
 
+'''
 # Main project directory paths.
 python_project_path = "/Users/kieranpritchard/Documents/Coding Projects/Python/Projects"
 html_css_js_project_path = "/Users/kieranpritchard/Documents/Coding Projects/HTML, CSS & Javascript/Projects"
@@ -125,3 +126,4 @@ if running_automation:
 else:
     for path in main_project_paths:
         sort_and_organise_general_projects(path, blacklist)
+'''
