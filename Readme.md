@@ -9,20 +9,27 @@
     <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/KieranPritchard/Script-Vault">
 </div>
 
-
 ## Project Description
 
-This repostiory is collection of all my scripts and automations, they are designed to help streamline and improve my workflows. 
+### Objective
 
-One of my reasons for this constantly ongoing project, is to cut down on having to repeatedly do the same boring tasks constandly. Another reason is to learn and refine my scripting abilitys in python, bash, and more as my needs change.
+To create an ongoing project improves my scripting ability with various languages. Another objective is to keep all of my scripts together, and in one place. You can find the links to them below. 
 
-Each project has its own "ReadMe.md", which you can find the links too in the contents table below.
+### Features
+
+* Scripts to cut down on repetative tasks.
+* Compile them all together, in one place.
+* Refine my scripting abillities. 
+
+### Technologies and Tools Used
+
+* **Language(s):** Various
+* **Frameworks/Librarys:** Various
+* **Tools:** Git, VS Code.
 
 ## Table of Contents
 
-|Automation|Link to ReadMe|
-|---|---|
-|Coding Project Organiser|[Click Me](https://github.com/KieranPritchard/Script-Vault/blob/main/File%20Management%20Scripts/Coding%20Project%20Organiser/README.md)|
+* [|Coding Project Organiser](https://github.com/KieranPritchard/Script-Vault/blob/main/File%20Management%20Scripts/Coding%20Project%20Organiser/README.md)
 
 ## License
 
