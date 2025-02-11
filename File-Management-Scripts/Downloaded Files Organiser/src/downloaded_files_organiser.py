@@ -94,7 +94,7 @@ def move_files_to_folder(downloads_folder_path, sorted_files_location):
                 shutil.move(file,sorted_files_location + "/Unspecified")
 
 def main():
-    config_file = "config.json"
+    config_file = "Script-Vault/File-Management-Scripts/Downloaded Files Organiser/res/config.json"
     
     with open(config_file, "r") as config_file:
         config_data = json.load(config_file)
