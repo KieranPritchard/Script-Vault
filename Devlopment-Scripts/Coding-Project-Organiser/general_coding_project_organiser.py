@@ -9,7 +9,7 @@ def remove_uncessary_files(directory):
     # Goes through the folder to remove the files
     for root, dirs, files in os.walk(directory):
         for file in files:
-            if any(file.endwith(extension) for extension in extensions_to_remove):
+            if any(file.endswith(extension) for extension in extensions_to_remove):
                 file_path = os.path.join(root, file)
                 try:
                     os.remove(file_path)

@@ -26,3 +26,13 @@ Turning it into what it was supposed to be. In the last iteration of this script
 Used Python and the modules listed to create this script, I also rebuild this script to fit an earlier vision before I tryed to make it a one size fits all solution. Another thing, I can update this easier then the other version.
 
 ## How to use Script:
+
+1. **Set Up Your Enviroment:**
+    * Make sure you have Python Installed at the latest version, if not install from www.python.org.
+2. **Run The Script:**
+    * Open a terminal or command prompt and navigate to your project directory where the script is located.
+    * Run with the following command: `python general_coding_project_organiser.py`
+3. **Clean Up Unnecessary Files:**
+    * The script will automatically scan the directory and remove unnecessary files such as `.tmp`, `.log`, `.bak`, and `.DS_Store`.
+4. **Verify Your Project Directory:**
+    * Check your project folder to confirm that unwanted files have been removed.
