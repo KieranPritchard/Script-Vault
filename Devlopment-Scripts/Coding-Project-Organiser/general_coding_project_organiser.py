@@ -48,3 +48,11 @@ def organise_project_folder(directory):
 
             shutil.move(os.path.join(root, file), os.path.join(destination_folder_path, file))
             print(f"Moved {file} to {destination_folder_path}")
+
+if __name__ == "__main__":
+    folder_to_clean = input("Enter the directory you want to clean: ")
+    if os.path.exists(folder_to_clean):
+        remove_uncessary_files(folder_to_clean)
+        organise_project_folder(folder_to_clean)
+    else:
+        print("Entered folder does not exist.")
