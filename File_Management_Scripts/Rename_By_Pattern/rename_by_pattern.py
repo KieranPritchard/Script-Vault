@@ -17,7 +17,7 @@ def main():
         print("(2) Rename by directory name.")
         print("(3) Quit.")
         print("=" * 60)
-        user_option = int(input("Input your choice:"))
+        user_option = int(input("Input your choice: "))
         print("=" * 60)
 
         if user_option == 1:
