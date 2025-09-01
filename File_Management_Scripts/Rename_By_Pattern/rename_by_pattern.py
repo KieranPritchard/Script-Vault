@@ -19,33 +19,53 @@ def rename_by_file_type():
         if ext == "jpg" or ext == "jpeg" or ext == "png" or ext == "gif":
             new_file_name = f"photo_{photo_iterator}.{ext}"
             new_file_path = os.path.join(folder, new_file_name)
-            os.rename(file_path, new_file_path)
-            photo_iterator += 1
+            if not os.path.exists(new_file_path):
+                os.rename(file_path, new_file_path)
+                photo_iterator += 1
+            else:
+                continue
         elif ext == "pdf" or ext == "docx" or ext == "doc" or ext == "txt" or ext == "odt" or ext == "rtf":
             new_file_name = f"document_{document_iterator}.{ext}"
             new_file_path = os.path.join(folder, new_file_name)
-            os.rename(file_path, new_file_path)
-            document_iterator += 1
+            if not os.path.exists(new_file_path):
+                os.rename(file_path, new_file_path)
+                document_iterator += 1
+            else:
+                continue
         elif ext == "xls" or ext == "xlsx" or ext == "csv" or ext == "ods":
             new_file_name = f"spreadsheet_{spreadsheet_iterator}.{ext}"
             new_file_path = os.path.join(folder, new_file_name)
-            os.rename(file_path, new_file_path)
-            spreadsheet_iterator += 1
+            if not os.path.exists(new_file_path):
+                os.rename(file_path, new_file_path)
+                spreadsheet_iterator += 1
+            else:
+                continue
         elif ext == "ppt" or ext == "pptx" or ext == "odp":
             new_file_name = f"presentaition_{presentaition_iterator}.{ext}"
             new_file_path = os.path.join(folder, new_file_name)
-            os.rename(file_path, new_file_path)
-            presentaition_iterator += 1
+            if not os.path.exists(new_file_path):
+                os.rename(file_path, new_file_path)
+                presentaition_iterator += 1
+            else:
+                continue
         elif ext == "mp3" or ext == "wav" or ext == "aac" or ext == "flac":
             new_file_name = f"audio_{audio_iterator}.{ext}"
             new_file_path = os.path.join(folder, new_file_name)
-            os.rename(file_path, new_file_path)
-            audio_iterator += 1
+            if not os.path.exists(new_file_path):
+                os.rename(file_path, new_file_path)
+                audio_iterator += 1
+            else:
+                continue
         elif ext == "mp4" or ext == "avi" or ext == "mov" or ext == "mkv" or ext == "wmv":
             new_file_name = f"video_{video_iterator}.{ext}"
             new_file_path = os.path.join(folder, new_file_name)
-            os.rename(file_path, new_file_path)
-            video_iterator += 1
+            if not os.path.exists(new_file_path):
+                os.rename(file_path, new_file_path)
+                video_iterator += 1
+            else:
+                continue
+        else:
+            continue
 
 def rename_by_directory_name():
     return
