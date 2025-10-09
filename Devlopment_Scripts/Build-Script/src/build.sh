@@ -1,32 +1,33 @@
 #!/bin/bash
 
-# This checks a file if a file name has been passed as an arguement
+# Check if a filename is passed as an argument
 if [ -z "$1" ]; then
   echo "Usage: $0 <filename>"
   exit 1
 fi
 
-# Takes the filename then removes the exentension for the executable to use the same name 
 filename=$1
 executable_name="${filename%.*}.exe"
 
-# Checks for if the file exists
+# Check if the file exists
 if [ ! -f "$filename" ]; then
-  echo "Error encountered: '$filename' does not exist."
+  echo "Error: '$filename' does not exist."
   exit 1
 fi
 
-# This checks if g++ installed
+# Check if g++ is installed
 if ! command -v g++ &> /dev/null; then
-  echo "Error encountered: g++ not installed. Please install g++ then run again"
+  echo "Error: g++ is not installed. Please install g++ and try again."
   exit 1
 fi
 
-# Compiles code with g++
-echo "Compiling $filename..."
-if g++ "$filename" -o "$executable_name"; then
-  echo "Successful compilation of $filename. Output: $executable_name"
-  else
-  echo "Error encountered: Compilation failed."
+# Try compiling with the latest C++ standard (C++26 fallback to C++23 if unsupported)
+echo "Compiling $filename with the latest C++ standard..."
+if g++ -std=c++26 -Wall -Wextra -pedantic -O2 "$filename" -o "$executable_name" 2>/dev/null; then
+  echo "Compilation successful (C++26). Output: $executable_name"
+elif g++ -std=c++23 -Wall -Wextra -pedantic -O2 "$filename" -o "$executable_name"; then
+  echo "Compilation successful (C++23). Output: $executable_name"
+else
+  echo "Error: Compilation failed."
   exit 1
 fi
