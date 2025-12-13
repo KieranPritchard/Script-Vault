@@ -6,17 +6,21 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
+# Takes in the file name as the first arguement
 filename=$1
+# Turns the file name into an executable
 executable_name="${filename%.*}.exe"
 
 # Check if the file exists
 if [ ! -f "$filename" ]; then
+  # Outputs error message and exits
   echo "Error: '$filename' does not exist."
   exit 1
 fi
 
 # Check if g++ is installed
 if ! command -v g++ &> /dev/null; then
+  # Outputs error message and exits
   echo "Error: g++ is not installed. Please install g++ and try again."
   exit 1
 fi
