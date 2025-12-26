@@ -39,4 +39,5 @@ gobuster dns \
 -w "$wordlist" \
 -t "$threads" \
 --resolver 8.8.8.8 \
---wildcard
+--wildcard \
+--timeout 3s
