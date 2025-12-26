@@ -27,10 +27,6 @@ To create an ongoing project improves my scripting ability with various language
 * **Frameworks/Librarys:** Various
 * **Tools:** Git, VS Code.
 
-## Table of Contents
-
-* [|Coding Project Organiser](https://github.com/KieranPritchard/Script-Vault/blob/main/File%20Management%20Scripts/Coding%20Project%20Organiser/README.md)
-
 ## License
 
 License is located in the root of the repository.
