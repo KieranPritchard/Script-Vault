@@ -35,6 +35,6 @@ threads=50
 
 # Runs gobuster in dns enumeration mode with the previous variables
 gobuster dns \
--d "$domain" \
+--domain "$domain" \
 -w "$wordlist" \
 -t "$threads"
