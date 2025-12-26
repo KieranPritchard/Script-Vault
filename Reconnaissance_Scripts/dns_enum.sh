@@ -37,4 +37,5 @@ threads=50
 gobuster dns \
 --domain "$domain" \
 -w "$wordlist" \
--t "$threads"
+-t "$threads" \
+-r 8.8.8.8
