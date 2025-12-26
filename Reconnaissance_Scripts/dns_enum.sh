@@ -30,8 +30,8 @@ fi
 
 # Gets the domain from a postion arguement
 domain="$1"
-# Sets threads to 50
-threads=20
+# Sets threads to 10
+threads=10
 
 # Runs gobuster in dns enumeration mode with the previous variables
 gobuster dns \
