@@ -38,6 +38,6 @@ gobuster dns \
 --domain "$domain" \
 -w "$wordlist" \
 -t "$threads" \
---resolver 8.8.8.8 \
+--resolver 1.1.1.1 \
 --wildcard \
 --timeout 3s
