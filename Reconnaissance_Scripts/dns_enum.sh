@@ -38,4 +38,5 @@ gobuster dns \
 --domain "$domain" \
 -w "$wordlist" \
 -t "$threads" \
--r 8.8.8.8
+--resolver 8.8.8.8\
+--wildcard
