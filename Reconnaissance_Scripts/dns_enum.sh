@@ -40,4 +40,4 @@ gobuster dns \
 -t "$threads" \
 --resolver 1.1.1.1 \
 --wildcard \
---timeout 3s
+--timeout 5s
