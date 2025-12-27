@@ -15,7 +15,7 @@ def extract_date(value):
     return value
 
 # Function to get whois records
-def getWhoIs(domain):
+def get_who_is(domain):
     # Looks up the whois data
     who = whois.whois(domain)
 
@@ -29,7 +29,7 @@ def getWhoIs(domain):
     print(f"Expiration Date: {extract_date(who.expiration_date)}")
 
 # Function to resolve A records
-def getARecords(domain):
+def get_a_records(domain):
     # Resolves the dns data for a records
     answers = dns.resolver.resolve(domain, "A")
     # Loops through the resolved data in answers
@@ -40,7 +40,7 @@ def getARecords(domain):
         # Outputs the address
         print(f"A Record Address: {resolved_data.address}")
 
-def getNsRecords(domain):
+def get_ns_records(domain):
     # Resolves NS Records
     ns = dns.resolver.resolve(domain, "NS")
     # Loops through the resolved data in answers
@@ -60,9 +60,9 @@ def main():
     domain = input("Please enter a domain: ")
 
     # Calls the functions with domain as a parameter
-    getWhoIs(domain)
-    getARecords(domain)
-    getNsRecords(domain)
+    get_who_is(domain)
+    get_a_records(domain)
+    get_ns_records(domain)
 
 if __name__ == "__main__":
     main()
