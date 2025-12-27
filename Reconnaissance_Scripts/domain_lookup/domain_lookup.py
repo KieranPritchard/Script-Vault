@@ -8,7 +8,6 @@ def getWhoIs(domain):
 
     # Outputs the relevant data
     print("=" * 30)
-    print(who)
     print(who.domain_name)
     print(who.registrar)
     print(who.creation_date)
@@ -31,3 +30,20 @@ def getNsRecords(domain):
     print("NS Records:")
     for r in ns:
         print(r.target)
+
+def main():
+    # Outputs a header
+    print("=" * 30)
+    print("Domain Record Lookup")
+    print("=" * 30)
+
+    # Asks user to input a domain
+    domain = input("Please enter a domain: ")
+
+    # Calls the functions with domain as a parameter
+    getWhoIs(domain)
+    getARecords(domain)
+    getNsRecords(domain)
+
+if __name__ == "__main__":
+    main()
