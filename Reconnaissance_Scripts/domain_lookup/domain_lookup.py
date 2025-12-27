@@ -40,6 +40,18 @@ def get_a_records(domain):
         # Outputs the address
         print(f"A Record Address: {resolved_data.address}")
 
+# Function to resolve A records
+def get_aaaa_records(domain):
+    # Resolves the dns data for aaaa records
+    answers = dns.resolver.resolve(domain, "AAAA")
+    # Loops through the resolved data in answers
+    print("=" * 30)
+    print("AAAA Records:")
+    print("=" * 30)
+    for resolved_data in answers:
+        # Outputs the address
+        print(f"AAAA Record Address: {resolved_data.address}")
+
 def get_ns_records(domain):
     # Resolves NS Records
     ns = dns.resolver.resolve(domain, "NS")
@@ -62,6 +74,7 @@ def main():
     # Calls the functions with domain as a parameter
     get_who_is(domain)
     get_a_records(domain)
+    get_aaaa_records(domain)
     get_ns_records(domain)
 
 if __name__ == "__main__":
