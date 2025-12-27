@@ -62,6 +62,52 @@ def get_ns_records(domain):
     for r in ns:
         print(f"NS Record Address: {r.target}")
 
+def get_mx_records(domain):
+    # Resolves MX records from the domain
+    answers = dns.resolver.resolve(domain, "MX")
+
+    # Outputs header
+    print("=" * 30)
+    print("MX Records")
+    print("=" * 30)
+    # Loops through the resolved data in answers
+    for record in answers:
+        print(f"Priority: {record.preference}, Server: {record.exchange}")
+
+def get_txt_records(domain):
+    answers = dns.resolver.resolve(domain, "TXT")
+
+    print("=" * 30)
+    print("TXT Records")
+    print("=" * 30)
+    for record in answers:
+        text = b"".join(record.strings).decode()
+        print(f"TXT Record: {text}")
+
+def get_cname_records(domain):
+    answers = dns.resolver.resolve(domain, "CNAME")
+
+    print("=" * 30)
+    print("CNAME Records")
+    print("=" * 30)
+    for record in answers:
+        print(f"CNAME Target: {record.target}")
+
+def get_soa_record(domain):
+    answers = dns.resolver.resolve(domain, "SOA")
+
+    print("=" * 30)
+    print("SOA Record")
+    print("=" * 30)
+    for record in answers:
+        print(f"Primary NS: {record.mname}")
+        print(f"Responsible Email: {record.rname}")
+        print(f"Serial: {record.serial}")
+        print(f"Refresh: {record.refresh}")
+        print(f"Retry: {record.retry}")
+        print(f"Expire: {record.expire}")
+        print(f"Minimum TTL: {record.minimum}")
+
 def main():
     # Outputs a header
     print("=" * 30)
@@ -76,6 +122,10 @@ def main():
     get_a_records(domain)
     get_aaaa_records(domain)
     get_ns_records(domain)
+    get_mx_records(domain)
+    get_txt_records(domain)
+    get_cname_records(domain)
+    get_soa_record(domain)
 
 if __name__ == "__main__":
     main()
