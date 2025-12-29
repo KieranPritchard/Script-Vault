@@ -16,15 +16,16 @@ def extract_date(value):
 
 # Function to get whois records
 def get_who_is(domain):
+    # Header for section
+    print("=" * 30)
+    print("WHOIS Records")
+    print("=" * 30)
     # Trys to look up the whois data
     try:
         # Looks up the whois data
         who = whois.whois(domain)
 
         # Outputs the relevant data
-        print("=" * 30)
-        print("WHOIS Records")
-        print("=" * 30)
         print(f"Domain Name: {who.domain_name}")
         print(f"Registrar: {who.registrar}")
         print(f"Creation Date: {extract_date(who.creation_date)}")
@@ -34,13 +35,15 @@ def get_who_is(domain):
 
 # Function to resolve A records
 def get_a_records(domain):
+    # Header for section
+    print("=" * 30)
+    print("A Records:")
+    print("=" * 30)
+    # Trys to resolve A records
     try:
         # Resolves the dns data for a records
         answers = dns.resolver.resolve(domain, "A")
-        # Header for section
-        print("=" * 30)
-        print("A Records:")
-        print("=" * 30)
+
         # Loops through the resolved data in answers
         for resolved_data in answers:
             # Outputs the address
@@ -50,13 +53,15 @@ def get_a_records(domain):
 
 # Function to resolve AAAA records
 def get_aaaa_records(domain):
+    # Header for section
+    print("=" * 30)
+    print("AAAA Records:")
+    print("=" * 30)
+    # Trys to resolve AAAA records
     try:
         # Resolves the dns data for aaaa records
         answers = dns.resolver.resolve(domain, "AAAA")
         # Loops through the resolved data in answers
-        print("=" * 30)
-        print("AAAA Records:")
-        print("=" * 30)
         for resolved_data in answers:
             # Outputs the address
             print(f"AAAA Record Address: {resolved_data.address}")
@@ -64,27 +69,30 @@ def get_aaaa_records(domain):
         print("Error encountered with AAAA records")
 
 def get_ns_records(domain):
+    # Header for section
+    print("=" * 30)
+    print("NS Records")
+    print("=" * 30)
+    # Trys to resolve NS records
     try:
         # Resolves NS Records
         ns = dns.resolver.resolve(domain, "NS")
         # Loops through the resolved data in answers
-        print("=" * 30)
-        print("NS Records:")
-        print("=" * 30)
         for r in ns:
             print(f"NS Record Address: {r.target}")
     except:
         print("Error encountered with NS records")
 
 def get_mx_records(domain):
+    # Outputs header
+    print("=" * 30)
+    print("MX Records")
+    print("=" * 30)
+    # Trys to resolve MX records
     try:
         # Resolves MX records from the domain
         answers = dns.resolver.resolve(domain, "MX")
 
-        # Outputs header
-        print("=" * 30)
-        print("MX Records")
-        print("=" * 30)
         # Loops through the resolved data in answers
         for record in answers:
             print(f"Priority: {record.preference}, Server: {record.exchange}")
@@ -92,37 +100,52 @@ def get_mx_records(domain):
         print("Error encountered with MX records")
 
 def get_txt_records(domain):
+    # Header for section
+    print("=" * 30)
+    print("TXT Records")
+    print("=" * 30)
+    # Trys to resolve TXT records
     try:
+        # Resolves TXT Records
         answers = dns.resolver.resolve(domain, "TXT")
-
-        print("=" * 30)
-        print("TXT Records")
-        print("=" * 30)
+        # Loops through the records in answers
         for record in answers:
+            # Decodes and joins the records together
             text = b"".join(record.strings).decode()
+            # Outputs the txt records
             print(f"TXT Record: {text}")
     except:
+        # Outputs errors
         print("Error encountered with TXT records")
 
 def get_cname_records(domain):
+    # Header for section
+    print("=" * 30)
+    print("CNAME Records")
+    print("=" * 30)
+    # Trys to resolve cname records
     try:
+        # Resolves the CNAME records
         answers = dns.resolver.resolve(domain, "CNAME")
-
-        print("=" * 30)
-        print("CNAME Records")
-        print("=" * 30)
+        # Loops through the answers
         for record in answers:
+            # Outputs the cname records
             print(f"CNAME Target: {record.target}")
     except:
+        # Outputs error message
         print("Error encountered with CNAME records")
 
 def get_soa_record(domain):
+    # Header for section
+    print("=" * 30)
+    print("SOA Record")
+    print("=" * 30)
+    # Trys to get SOA records
     try:
+        # Resolves the SOA records
         answers = dns.resolver.resolve(domain, "SOA")
 
-        print("=" * 30)
-        print("SOA Record")
-        print("=" * 30)
+        # Loops through the records resolved and outputs the details
         for record in answers:
             print(f"Primary NS: {record.mname}")
             print(f"Responsible Email: {record.rname}")
@@ -132,6 +155,7 @@ def get_soa_record(domain):
             print(f"Expire: {record.expire}")
             print(f"Minimum TTL: {record.minimum}")
     except:
+        # Outputs error message
         print("Error encountered with SOA records")
 
 def main():
@@ -153,5 +177,6 @@ def main():
     get_cname_records(domain)
     get_soa_record(domain)
 
+# Starts the script
 if __name__ == "__main__":
     main()
