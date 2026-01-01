@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup, Comment
 from urllib.parse import urljoin
+import builtwith
 
 # Function to get http headers
 def get_http_headers(url):
@@ -25,3 +26,20 @@ def get_html_comments(url):
     
     # Preps comments and returns them
     return [comment.strip() for comment in comments if comment.strip()]
+
+# Main function
+def main():
+    # Allows the user to enter the target
+    target = input("Enter target URL (https://example.com): ")
+
+    print("[+] HTTP Headers")
+    # Gets the headers from the headers function
+    headers = get_http_headers(target)
+    # Loops over the headers
+    for header, information in headers.items():
+        # Outputs the headers and the information
+        print(f"{header}: {information}")
+
+# Starts the program
+if __name__ == "__main__":
+    main()
