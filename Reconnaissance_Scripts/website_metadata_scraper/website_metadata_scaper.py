@@ -40,6 +40,14 @@ def main():
         # Outputs the headers and the information
         print(f"{header}: {information}")
 
+    print("[+] HTML Comments")
+    # Gets the comments from function
+    comments = get_html_comments(target)
+    # Loops over the comments
+    for comment in comments:
+        # Outputs comments
+        print(f"<!-- {comment} -->")
+
 # Starts the program
 if __name__ == "__main__":
     main()
