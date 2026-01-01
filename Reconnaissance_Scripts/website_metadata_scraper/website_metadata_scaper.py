@@ -1,5 +1,5 @@
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 from urllib.parse import urljoin
 
 # Function to get http headers
@@ -12,3 +12,16 @@ def get_http_headers(url):
 
     # Returns headers
     return headers
+
+# Function to get html comments
+def get_html_comments(url):
+    # Makes get request with url arguement
+    response = requests.get(url, timeout=10)
+    # Puts the text from the response into beautiful souo
+    soup = BeautifulSoup(response.text, "lxml")
+
+    # Stores any found comments in the comments variable
+    comments = soup.find_all(string=lambda text: isinstance(text, Comment))
+    
+    # Preps comments and returns them
+    return [comment.strip() for comment in comments if comment.strip()]
