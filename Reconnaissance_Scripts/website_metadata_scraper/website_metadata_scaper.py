@@ -27,6 +27,34 @@ def get_html_comments(url):
     # Preps comments and returns them
     return [comment.strip() for comment in comments if comment.strip()]
 
+# extracts the javascript comments
+def get_js_comments(url):
+    # Makes a get request to the url
+    response = requests.get(url, timeout=10)
+    # Extracts the page content
+    soup = BeautifulSoup(response.text, "lxml")
+
+    # List to store comments
+    js_comments = []
+
+    # Loops over all script elements in the website
+    for script in soup.find_all("script"):
+        # Checks if script is a string
+        if script.string:
+            # Extracts lines
+            lines = script.string.splitlines()
+            # Loops over the lines
+            for line in lines:
+                # Strips white space from the line
+                line = line.strip()
+                # Checks if the line is a script script comment
+                if line.startswith("//") or line.startswith("/*"):
+                    # Adds comments to lines
+                    js_comments.append(line)
+
+    # Returns the js comments
+    return js_comments
+
 # Added detect technologies
 def detect_technologies(url):
     # Trys to get the technologies
