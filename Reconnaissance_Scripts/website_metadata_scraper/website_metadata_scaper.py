@@ -55,6 +55,29 @@ def get_js_comments(url):
     # Returns the js comments
     return js_comments
 
+# function to get cookie metadata
+def get_cookie_metadata(url):
+    # Gets a response from the url
+    response = requests.get(url, timeout=10)
+
+    # Empty list to store cookies
+    cookies = []
+    # Loops over the cookies
+    for cookie in response.cookies:
+        # Adds cookies to list
+        cookies.append(
+            {
+                "name": cookie.name,
+                "domain": cookie.domain,
+                "path": cookie.path,
+                "secure": cookie.secure,
+                "httponly": "HttpOnly" in cookie._rest
+            }
+        )
+    
+    # Returns the cookies
+    return cookies
+
 # Added detect technologies
 def detect_technologies(url):
     # Trys to get the technologies
