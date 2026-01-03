@@ -78,6 +78,26 @@ def get_cookie_metadata(url):
     # Returns the cookies
     return cookies
 
+def get_site_declarations(url):
+    # Specifies files 
+    files = ["robots.txt", "sitemap.xml"]
+    # Stores the declarations
+    declarations = {}
+
+    # Loops over the files
+    for file in files:
+        # Makes the url to test
+        test_url = urljoin(url, file)
+        # Make request to test url
+        response = requests.get(test_url, timeout=5)
+        # Checks if the status code is within the ok range
+        if response.status_code == 200:
+            # Adds the reponse to the declarations
+            declarations[file] = response.text
+    
+    # Returns the declarations
+    return declarations
+
 # Added detect technologies
 def detect_technologies(url):
     # Trys to get the technologies
