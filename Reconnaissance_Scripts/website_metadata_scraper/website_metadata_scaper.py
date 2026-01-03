@@ -108,6 +108,26 @@ def detect_technologies(url):
         # Returns the error
         return {"error": str(e)}
 
+def get_security_metadata(url):
+    # Makes request to url
+    response = requests.get(url, timeout=10)
+
+    # Gets the headers from the response
+    headers = response.headers
+
+    # Gets the security headers
+    security_headers = {
+        "Content-Security-Policy": headers.get("Content-Security-Policy"),
+        "Strict-Transport-Security": headers.get("Strict-Transport-Security"),
+        "X-Frame-Options": headers.get("X-Frame-Options"),
+        "X-Content-Type-Options": headers.get("X-Content-Type-Options"),
+        "Referrer-Policy": headers.get("Referrer-Policy"),
+        "Permissions-Policy": headers.get("Permissions-Policy"),
+    }
+
+    # Returns the security headers
+    return security_headers
+
 # Main function
 def main():
     # Allows the user to enter the target
