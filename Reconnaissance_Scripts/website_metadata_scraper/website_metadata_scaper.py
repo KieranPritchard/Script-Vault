@@ -155,55 +155,59 @@ def main():
     # Allows the user to enter the target
     target = input("Enter target URL (https://example.com): ")
 
-    print("[+] HTTP Headers")
-    # Gets the headers from the headers function
-    headers = get_http_headers(target)
-    # Loops over the headers
-    for header, information in headers.items():
-        # Outputs the headers and the information
-        print(f"{header}: {information}")
+    # Vaildates if there was a target entered
+    if target:
+        print("[+] HTTP Headers")
+        # Gets the headers from the headers function
+        headers = get_http_headers(target)
+        # Loops over the headers
+        for header, information in headers.items():
+            # Outputs the headers and the information
+            print(f"{header}: {information}")
 
-    print("[+] HTML Comments")
-    # Gets the comments from function
-    comments = get_html_comments(target)
-    # Loops over the comments
-    for comment in comments:
-        # Outputs comments
-        print(f"<!-- {comment} -->")
+        print("[+] HTML Comments")
+        # Gets the comments from function
+        comments = get_html_comments(target)
+        # Loops over the comments
+        for comment in comments:
+            # Outputs comments
+            print(f"<!-- {comment} -->")
 
-    print("[+] JavaScript Comments")
-    # Gets the javascript comments
-    js_comments = get_js_comments(target)
-    # Loops over the javascript comments
-    for js_comment in js_comments:
-        # Outputs the the javscript comments
-        print(f"// {js_comment}")
+        print("[+] JavaScript Comments")
+        # Gets the javascript comments
+        js_comments = get_js_comments(target)
+        # Loops over the javascript comments
+        for js_comment in js_comments:
+            # Outputs the the javscript comments
+            print(f"// {js_comment}")
 
-    print("[+] <meta> tags")
-    # Gets the metadata tags 
-    metadata_tags = get_meta_tags(target)
-    for tag in metadata_tags:
-        print(tag)
-    
-    print("[+] Cookie Metadata")
-    # gets cookies metadata
-    cookies = get_cookie_metadata(target)
-    # Loops over the cookies
-    for cookie in cookies:
-        print(cookie)
+        print("[+] <meta> tags")
+        # Gets the metadata tags 
+        metadata_tags = get_meta_tags(target)
+        for tag in metadata_tags:
+            print(tag)
+        
+        print("[+] Cookie Metadata")
+        # gets cookies metadata
+        cookies = get_cookie_metadata(target)
+        # Loops over the cookies
+        for cookie in cookies:
+            print(cookie)
 
-    print("[+] Security metadata")
-    security_data = get_security_metadata(target)
-    for data in security_data:
-        print(f"{data}:{security_data.get(data)}")
-    
-    print("[+] Technologies Used")
-    # Gets the tech stack from the function
-    tech = detect_technologies(target)
-    # loops over tech and extracts the technologys
-    for category, items in tech.items():
-        # Outputs the category
-        print(f"{category}: {items}")
+        print("[+] Security metadata")
+        security_data = get_security_metadata(target)
+        for data in security_data:
+            print(f"{data}:{security_data.get(data)}")
+        
+        print("[+] Technologies Used")
+        # Gets the tech stack from the function
+        tech = detect_technologies(target)
+        # loops over tech and extracts the technologys
+        for category, items in tech.items():
+            # Outputs the category
+            print(f"{category}: {items}")
+    else:
+        print("[!] Please enter a target URL")
 
 # Starts the program
 if __name__ == "__main__":
