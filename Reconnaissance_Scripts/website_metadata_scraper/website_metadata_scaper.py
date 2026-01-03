@@ -55,6 +55,28 @@ def get_js_comments(url):
     # Returns the js comments
     return js_comments
 
+# Function to get meta tags
+def get_meta_tags(url):
+    # gets a respons from the get request to the url
+    response = requests.get(url, timeout=10)
+    # Sets up beautiful soup
+    soup = BeautifulSoup(response.text, "lxml")
+
+    # Dictionary to store metadata
+    metadata = {}
+
+    # Loops over the metadata tags
+    for tag in soup.find_all("meta"):
+        key = tag.get("name")or tag.get("property") or tag.get("http-equiv")
+
+        # Checks if there is a key
+        if key:
+            # Adds contents of metadata to metadata dictionary
+            metadata[key] = tag.get("content")
+
+    # Returns the metadata
+    return metadata
+
 # function to get cookie metadata
 def get_cookie_metadata(url):
     # Gets a response from the url
