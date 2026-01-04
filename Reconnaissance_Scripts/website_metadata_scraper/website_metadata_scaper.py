@@ -19,8 +19,11 @@ def get_random_agent():
 
 # Function to get http headers
 def get_http_headers(url):
+    # Gets random user agent for header
+    header = get_random_agent()
+
     # gets the response from a get request to the url
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, headers=header,timeout=10)
 
     # Extracts the headers
     headers = response.headers
@@ -30,8 +33,11 @@ def get_http_headers(url):
 
 # Function to get html comments
 def get_html_comments(url):
+    # Gets random user agent for header
+    header = get_random_agent()
+
     # Makes get request with url arguement
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, headers=header,timeout=10)
     # Puts the text from the response into beautiful souo
     soup = BeautifulSoup(response.text, "lxml")
 
@@ -43,8 +49,10 @@ def get_html_comments(url):
 
 # extracts the javascript comments
 def get_js_comments(url):
+    # Gets random user agent for header
+    header = get_random_agent()
     # Makes a get request to the url
-    response = requests.get(url, timeout=10)
+    response = requests.get(url,headers=header,timeout=10)
     # Extracts the page content
     soup = BeautifulSoup(response.text, "lxml")
 
@@ -71,8 +79,10 @@ def get_js_comments(url):
 
 # Function to get meta tags
 def get_meta_tags(url):
+    # Gets random user agent for header
+    header = get_random_agent()
     # gets a respons from the get request to the url
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, headers=header, timeout=10)
     # Sets up beautiful soup
     soup = BeautifulSoup(response.text, "lxml")
 
@@ -93,8 +103,11 @@ def get_meta_tags(url):
 
 # function to get cookie metadata
 def get_cookie_metadata(url):
+    # Gets random user agent for header
+    header = get_random_agent()
+
     # Gets a response from the url
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, headers=header,timeout=10)
 
     # Empty list to store cookies
     cookies = []
@@ -115,6 +128,9 @@ def get_cookie_metadata(url):
     return cookies
 
 def get_site_declarations(url):
+    # Gets random user agent for header
+    header = get_random_agent()
+
     # Specifies files 
     files = ["robots.txt", "sitemap.xml"]
     # Stores the declarations
@@ -125,7 +141,7 @@ def get_site_declarations(url):
         # Makes the url to test
         test_url = urljoin(url, file)
         # Make request to test url
-        response = requests.get(test_url, timeout=5)
+        response = requests.get(test_url, headers=header,timeout=5)
         # Checks if the status code is within the ok range
         if response.status_code == 200:
             # Adds the reponse to the declarations
@@ -145,8 +161,11 @@ def detect_technologies(url):
         return {"error": str(e)}
 
 def get_security_metadata(url):
+    # Gets random user agent for header
+    header = get_random_agent()
+
     # Makes request to url
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, headers=header, timeout=10)
 
     # Gets the headers from the response
     headers = response.headers
