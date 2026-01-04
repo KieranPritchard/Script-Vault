@@ -193,7 +193,7 @@ def main():
             # Loops over the javascript comments
             for js_comment in js_comments:
                 # Outputs the the javscript comments
-                print(f"// {js_comment}")
+                print(f"{js_comment}")
         
         if metadata_tags:
             print("=" * 30)
@@ -208,7 +208,11 @@ def main():
             print("=" * 30)
             # Loops over the cookies
             for cookie in cookies:
-                print(cookie.get("Name"))
+                print(f"Cookie: {cookie.get("name")}")
+                print(f"- Domain: {cookie.get("domain")}")
+                print(f"- Path: {cookie.get("path")}")
+                print(f"- Secure: {cookie.get("secure")}")
+                print(f"- HTTPONLY: {cookie.get("httponly")}")
 
         if security_data:
             print("=" * 30)
