@@ -164,6 +164,7 @@ def main():
         metadata_tags = get_meta_tags(target) # Gets html metadata tags
         cookies = get_cookie_metadata(target) # Gets the metadata of cookies
         security_data = get_security_metadata(target) # Gets the security metadata
+        declarations = get_site_declarations(target) # Gets declaration pages
         tech = detect_technologies(target) # Finds out the tech stack
 
         # Checks if headers were returned
@@ -220,6 +221,13 @@ def main():
             print("=" * 30)
             for data in security_data:
                 print(f"{data}:{security_data.get(data)}")
+
+        if declarations:
+            print("=" * 30)
+            print("[+] Site Declarations")
+            print("=" * 30)
+            for declaration in declarations:
+                print(declaration)
         
         if tech:
             print("=" * 30)
