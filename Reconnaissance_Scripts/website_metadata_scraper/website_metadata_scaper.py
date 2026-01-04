@@ -166,42 +166,65 @@ def main():
         security_data = get_security_metadata(target) # Gets the security metadata
         tech = detect_technologies(target) # Finds out the tech stack
 
-        print("[+] HTTP Headers")
-        # Loops over the headers
-        for header, information in headers.items():
-            # Outputs the headers and the information
-            print(f"{header}: {information}")
+        # Checks if headers were returned
+        if headers:
+            print("=" * 30)
+            print("[+] HTTP Headers")
+            print("=" * 30)
+            # Loops over the headers
+            for header, information in headers.items():
+                # Outputs the headers and the information
+                print(f"{header}: {information}")
 
-        print("[+] HTML Comments")
-        # Loops over the comments
-        for comment in comments:
-            # Outputs comments
-            print(f"<!-- {comment} -->")
+        # Checks if comments were returned
+        if comments:
+            print("=" * 30)
+            print("[+] HTML Comments")
+            print("=" * 30)
+            # Loops over the comments
+            for comment in comments:
+                # Outputs comments
+                print(f"<!-- {comment} -->")
 
-        print("[+] JavaScript Comments")
-        # Loops over the javascript comments
-        for js_comment in js_comments:
-            # Outputs the the javscript comments
-            print(f"// {js_comment}")
-
-        print("[+] <meta> tags")
-        for tag in metadata_tags:
-            print(tag)
+        if js_comments:
+            print("=" * 30)
+            print("[+] JavaScript Comments")
+            print("=" * 30)
+            # Loops over the javascript comments
+            for js_comment in js_comments:
+                # Outputs the the javscript comments
+                print(f"// {js_comment}")
         
-        print("[+] Cookie Metadata")
-        # Loops over the cookies
-        for cookie in cookies:
-            print(cookie)
-
-        print("[+] Security metadata")
-        for data in security_data:
-            print(f"{data}:{security_data.get(data)}")
+        if metadata_tags:
+            print("=" * 30)
+            print("[+] <meta> tags")
+            print("=" * 30)
+            for tag in metadata_tags:
+                print(tag)
         
-        print("[+] Technologies Used")
-        # loops over tech and extracts the technologys
-        for category, items in tech.items():
-            # Outputs the category
-            print(f"{category}: {items}")
+        if cookies:
+            print("=" * 30)
+            print("[+] Cookie Metadata")
+            print("=" * 30)
+            # Loops over the cookies
+            for cookie in cookies:
+                print(cookie.get("Name"))
+
+        if security_data:
+            print("=" * 30)
+            print("[+] Security metadata")
+            print("=" * 30)
+            for data in security_data:
+                print(f"{data}:{security_data.get(data)}")
+        
+        if tech:
+            print("=" * 30)
+            print("[+] Technologies Used")
+            print("=" * 30)
+            # loops over tech and extracts the technologys
+            for category, items in tech.items():
+                # Outputs the category
+                print(f"{category}: {items}")
     else:
         print("[!] Please enter a target URL")
 
