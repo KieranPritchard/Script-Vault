@@ -220,6 +220,7 @@ def main():
                 # Outputs comments
                 print(f"<!-- {comment} -->")
 
+        # Checks if there are any javascript comments
         if js_comments:
             print("=" * 30)
             print("[+] JavaScript Comments")
@@ -229,37 +230,48 @@ def main():
                 # Outputs the the javscript comments
                 print(f"{js_comment}")
         
+        # Checks if there are any metadata tags
         if metadata_tags:
             print("=" * 30)
             print("[+] <meta> tags")
             print("=" * 30)
+            # Loops over metadata tags
             for tag in metadata_tags:
+                # Outputs the tag name
                 print(tag)
         
+        # Checks if there are any cookies
         if cookies:
             print("=" * 30)
             print("[+] Cookie Metadata")
             print("=" * 30)
             # Loops over the cookies
             for cookie in cookies:
+                # Outputs the cookie name and the metadata
                 print(f"Cookie: {cookie.get("name")}")
                 print(f"- Domain: {cookie.get("domain")}")
                 print(f"- Path: {cookie.get("path")}")
                 print(f"- Secure: {cookie.get("secure")}")
                 print(f"- HTTPONLY: {cookie.get("httponly")}")
 
+        # Checks if there was any security data
         if security_data:
             print("=" * 30)
             print("[+] Security metadata")
             print("=" * 30)
+            # Loops over the security data
             for data in security_data:
+                # Outputs the key-data pair
                 print(f"{data}:{security_data.get(data)}")
 
+        # Checks if there is any declarations
         if declarations:
             print("=" * 30)
             print("[+] Site Declarations")
             print("=" * 30)
+            # Loops over the declarations
             for declaration in declarations:
+                # Prints the declaration
                 print(declaration)
         
         if tech:
