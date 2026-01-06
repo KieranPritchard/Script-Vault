@@ -1,4 +1,5 @@
 import random
+import xml.etree.ElementTree as ET
 from urllib.parse import urljoin
 import requests
 
@@ -56,3 +57,51 @@ def analyse_robots(domain):
     
     # Returns the sitemap
     return disallowed, sitemaps
+
+# Function to parse the sitemap
+def parse_sitemap(domain):
+    # Empty list to store paths
+    urls = []
+
+    # Gets random user agent for header
+    header = get_random_agent()
+
+    # Creates robots url
+    robots_url = urljoin(domain, "/robots.txt")
+
+    # Gets response from the request to the robots
+    reponse = requests.get(robots_url, headers=header, timeout=10)
+
+    # Gets the page content
+    contents = reponse.text
+
+    # Checks for if there is no contents in response
+    if not contents:
+        return urls
+    
+    try:
+        # Gets the root of the xml tree
+        root = ET.fromstring(contents)
+        # Looks for the sitemap header
+        ns = {"ns": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+
+        # Checks if the root tag ends with sitemap index value
+        if root.tag.endswith("sitemapindex"):
+            # loops over the sitemap entries
+            for sm in root.findall("ns:sitemap", ns):
+                # Finds locations in the sitemap
+                loc = sm.find("ns:loc", ns)
+                # Checks if there is a sitemap
+                if loc is not None:
+                    # Adds urls that are found using recursion
+                    urls.extend(parse_sitemap(loc.text))
+        else:
+            # Checks for location
+            for loc in root.findall(".//ns:loc", ns):
+                # adds to list
+                urls.append(loc.text)
+    except ET.ParseError:
+        pass
+    
+    # Reutns the urls
+    return urls
