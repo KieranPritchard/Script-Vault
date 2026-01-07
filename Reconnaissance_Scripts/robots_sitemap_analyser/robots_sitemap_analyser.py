@@ -2,6 +2,7 @@ import random
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin
 import requests
+import time
 
 def load_wordlists():
     # Variables to store contents of the wordlists
@@ -277,6 +278,9 @@ def analyse_results(domain, results):
             continue
 
 def main():
+    # Logs the starting time
+    start_time = time.perf_counter() 
+
     # Loop to interate while the input isnt a correct format
     while True:
         try: 
@@ -329,6 +333,13 @@ def main():
     print("[+] Analysing sitemap results")
     # calls the function 
     analyse_results(domain, sitemap_paths)
+
+    # Gets end time and calculates the elasped time
+    end_time = time.perf_counter()
+    elapsed = end_time - start_time
+
+    # Outputs the time
+    print(f"[✓] Finished in {elapsed:.2f} seconds")
 
 if __name__ == "__main__":
     main()
