@@ -211,7 +211,7 @@ def parse_sitemap(domain):
     header = get_random_agent()
 
     # Creates robots url
-    robots_url = urljoin(domain, "/robots.txt")
+    robots_url = urljoin(domain, "/sitemap.xml")
 
     # Gets response from the request to the robots
     reponse = requests.get(robots_url, headers=header, timeout=10)
@@ -275,3 +275,67 @@ def analyse_results(domain, results):
         else:
             # Gos to next iteration
             continue
+
+def main():
+    # Loop to interate while the input isnt a correct format
+    while True:
+        try: 
+            # Lets the user enter a url
+            domain = input("Please enter a URL: ")
+            # Checks if there was a domain entered
+            if domain:
+                # Breaks out of the loop
+                break
+        except Exception as e:
+            # Outputs error message
+                print(f"Error encountered: {e}")
+
+    # Outputs that robots is being parsed
+    print("[+] Parsing robots.txt")
+    # Stores the found disallowed and sitemps paths
+    disallowed, sitemaps = parse_robots(domain)
+    # Checks if there is dissallowed and sitemaps
+    if disallowed and sitemaps:
+        # Outputs header 
+        print("[+] Found dissallowed and sitemap entries")
+        
+        # Outputs disallowed entries
+        print("Dissallowed entries:")
+        # Loops over the disallowed entries
+        for i in disallowed:
+            # Outputs the output
+            print(f"- {i}")
+        # Outputs sitemap entries
+        print("sitemap entries")
+        # Loops over the sitemaps entries
+        for i in sitemaps:
+            # Outputs the output
+            print(f"- {i}")
+    
+    # Outputs the sitemaps are being parsed
+    print("[+] Parsing sitemap.xml")
+    # gets the paths from the sitemap
+    sitemap_paths = parse_sitemap(domain)
+    # Loops over the sitemap paths
+    for i in sitemap_paths:
+        # Outputs the path
+        print(f"- {i}")
+
+    # Outputs the dissallowed results are being analysed
+    print("[+] Analysing disallowed results")
+    # Stores the analysed results
+    analysed_disallowed = analyse_results(domain, disallowed)
+    # Loops over the  analysed results
+    for i in analysed_disallowed:
+        # Outputs the anaysed paths
+        print(f"- {i}")
+    
+    # Stores the analysed results
+    analysed_paths = analyse_results(domain, sitemap_paths)
+    # Loops over the  analysed results
+    for i in analysed_paths:
+        # Outputs the anaysed paths
+        print(f"- {i}")
+
+if __name__ == "__main__":
+    main()
