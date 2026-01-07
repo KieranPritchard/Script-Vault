@@ -8,7 +8,7 @@ import time
 # Function to get random user agent from folder
 def get_random_agent():
     # Opens the file
-    with open("Script-Vault/Resources/user_agent_strings.txt", "r") as f:
+    with open("../../Resources/user_agent_strings.txt", "r") as f:
         # Extracts the user agents as a list
         user_agents = [ua.strip() for ua in f if ua.strip()]
 
