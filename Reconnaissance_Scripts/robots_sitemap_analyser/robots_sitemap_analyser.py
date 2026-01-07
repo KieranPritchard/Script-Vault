@@ -10,7 +10,7 @@ def load_wordlists():
         "config": "/usr/share/seclists/Discovery/Web-Content/web-all-content-types.txt",
         "backup": "/usr/share/seclists/Discovery/Web-Content/Common-DB-Backups.txt",
         "git": "/usr/share/seclists/Discovery/Web-Content/versioning_metafiles.txt",
-        "admin": "/usr/share/seclists/Discovery/Web-Content/CMS/Logins.fuzz.txt",
+        "admin": "/usr/share/seclists/Discovery/Web-Content/Logins.fuzz.txt",
         "api": "/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt",
         "dev": "/usr/share/seclists/Discovery/Web-Content/combined_words.txt",
         "staging": "/usr/share/seclists/Discovery/Web-Content/raft-small-directories.txt",
