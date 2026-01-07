@@ -18,16 +18,16 @@ def load_wordlists():
 
     # List to store wordlists paths
     wordlists = [
-        "Discovery/Web-Content/Files/config-files.txt",
-        "Discovery/Web-Content/Files/backup-files.txt",
-        "Discovery/Web-Content/Files/git-config.txt",
-        "Discovery/Web-Content/CMS/admin-panels.txt",
-        "Discovery/Web-Content/api/api-endpoints.txt",
-        "Discovery/Web-Content/Development/dev.txt",
-        "Discovery/Web-Content/Development/staging.txt",
-        "Discovery/Web-Content/Development/test.txt",
-        "Discovery/Web-Content/common.txt",
-        "Discovery/Web-Content/raft-small-words.txt"
+        "/usr/share/seclists/Discovery/Web-Content/Files/config-files.txt",
+        "/usr/share/seclists/Discovery/Web-Content/Files/backup-files.txt",
+        "/usr/share/seclists/Discovery/Web-Content/Files/git-config.txt",
+        "/usr/share/seclists/Discovery/Web-Content/CMS/admin-panels.txt",
+        "/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt",
+        "/usr/share/seclists/Discovery/Web-Content/Development/dev.txt",
+        "/usr/share/seclists/Discovery/Web-Content/Development/staging.txt",
+        "/usr/share/seclists/Discovery/Web-Content/Development/test.txt",
+        "/usr/share/seclists/Discovery/Web-Content/common.txt",
+        "/usr/share/seclists/Discovery/Web-Content/raft-small-words.txt"
     ]
 
     # Loops over each of the wordlists
@@ -150,7 +150,7 @@ def load_wordlists():
 # Function to get random user agent from folder
 def get_random_agent():
     # Opens the file
-    with open("Script-Vault/Resources/user_agent_strings.txt", "r") as f:
+    with open("../../Resources/user_agent_strings.txt", "r") as f:
         # Extracts the user agents as a list
         user_agents = [ua.strip() for ua in f if ua.strip()]
 
