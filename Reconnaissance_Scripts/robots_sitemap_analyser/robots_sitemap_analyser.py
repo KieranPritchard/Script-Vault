@@ -5,148 +5,40 @@ import requests
 import time
 
 def load_wordlists():
-    # Variables to store contents of the wordlists
-    config_wordlist = []
-    backup_wordlist = []
-    git_wordlist = []
-    admin_wordlist = []
-    api_wordlist = []
-    dev_wordlist = []
-    staging_wordlist = []
-    testing_wordlist = []
-    common_wordlist = []
-    raft_wordlist = []
+    # Dictionary to store wordlist names and their file paths
+    wordlist_paths = {
+        "config": "/usr/share/seclists/Discovery/Web-Content/Files/config-files.txt",
+        "backup": "/usr/share/seclists/Discovery/Web-Content/Files/backup-files.txt",
+        "git": "/usr/share/seclists/Discovery/Web-Content/Files/git-config.txt",
+        "admin": "/usr/share/seclists/Discovery/Web-Content/CMS/admin-panels.txt",
+        "api": "/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt",
+        "dev": "/usr/share/seclists/Discovery/Web-Content/Development/dev.txt",
+        "staging": "/usr/share/seclists/Discovery/Web-Content/Development/staging.txt",
+        "testing": "/usr/share/seclists/Discovery/Web-Content/Development/test.txt",
+        "common": "/usr/share/seclists/Discovery/Web-Content/common.txt",
+        "raft": "/usr/share/seclists/Discovery/Web-Content/raft-small-words.txt"
+    }
 
-    # List to store wordlists paths
-    wordlists = [
-        "/usr/share/seclists/Discovery/Web-Content/Files/config-files.txt",
-        "/usr/share/seclists/Discovery/Web-Content/Files/backup-files.txt",
-        "/usr/share/seclists/Discovery/Web-Content/Files/git-config.txt",
-        "/usr/share/seclists/Discovery/Web-Content/CMS/admin-panels.txt",
-        "/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt",
-        "/usr/share/seclists/Discovery/Web-Content/Development/dev.txt",
-        "/usr/share/seclists/Discovery/Web-Content/Development/staging.txt",
-        "/usr/share/seclists/Discovery/Web-Content/Development/test.txt",
-        "/usr/share/seclists/Discovery/Web-Content/common.txt",
-        "/usr/share/seclists/Discovery/Web-Content/raft-small-words.txt"
-    ]
+    # Dictionary to store the loaded wordlists
+    wordlists = {}
 
-    # Loops over each of the wordlists
-    for wordlist in wordlists:
-        # Checks the which wordlist is to be read
-        if wordlist == "/usr/share/seclists/Discovery/Web-Content/Files/config-files.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        config_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Files/backup-files.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        backup_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Files/git-config.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        git_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/CMS/admin-panels.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        admin_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        api_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Development/dev.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        dev_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Development/staging.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        staging_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Development/test.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        testing_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/common.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        common_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
-        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/raft-small-words.txt":
-            try:
-                # Opens the file
-                with open(wordlist, "r") as f:
-                    # Loops over the contents of the file
-                    for line in f:
-                        # Adds line to the list
-                        raft_wordlist.append(line)
-            except Exception as e:
-                # Outputs error message
-                print(f"Error encountered: {e}")
+    # Loops over each wordlist name and file path
+    for name, path in wordlist_paths.items():
+        try:
+            # Opens the wordlist file
+            with open(path, "r") as f:
+                # Reads each line from the file
+                # Strips newline characters and stores results in a list
+                wordlists[name] = [line.strip() for line in f]
+        except Exception as e:
+            # Outputs error message if file cannot be read
+            print(f"Error encountered while loading {path}: {e}")
 
-    # Returns the wordlists
-    return config_wordlist, backup_wordlist, git_wordlist, admin_wordlist, api_wordlist, dev_wordlist, staging_wordlist, testing_wordlist, common_wordlist, raft_wordlist
+            # Sets wordlist to empty list on error
+            wordlists[name] = []
+
+    # Returns all loaded wordlists
+    return wordlists
 
 # Function to get random user agent from folder
 def get_random_agent():
@@ -255,26 +147,52 @@ def analyse_results(domain, results):
     # Gets the random user agent
     headers = get_random_agent()
 
-    # Loads the wordlists
-    config_wordlist, backup_wordlist, git_wordlist, admin_wordlist, api_wordlist, dev_wordlist, staging_wordlist, testing_wordlist, common_wordlist, raft_wordlist = load_wordlists()
+    # Loads the wordlists (now returned as a dictionary)
+    wordlists = load_wordlists()
+
+    # Creates severity groupings from the loaded wordlists
+    critical_wordlists = (
+        wordlists["config"] +
+        wordlists["backup"] +
+        wordlists["git"]
+    )
+
+    high_wordlists = (
+        wordlists["admin"] +
+        wordlists["api"]
+    )
+
+    medium_wordlists = (
+        wordlists["dev"] +
+        wordlists["common"] +
+        wordlists["staging"] +
+        wordlists["testing"]
+    )
+
+    low_wordlists = wordlists["raft"]
 
     # Loops over the results
     for result in results:
-        # Makes a request to the websote
-        response = requests.get(urljoin(domain, result), headers=headers, timeout=10)
-        # Checks if the site is able to be accessed
-        if response.status_code == 200:
-            # Assesss the severity of the result
-            if result in config_wordlist or result in backup_wordlist or result in git_wordlist:
-                print(f"[Critical] {urljoin(domain, result)}")
-            elif result in admin_wordlist or result in api_wordlist:
-                print(f"[High] {urljoin(domain, result)}")
-            elif result in dev_wordlist or result in common_wordlist or result in staging_wordlist or result in testing_wordlist:
-                print(f"[Medium] {urljoin(domain, result)}")
-            elif result in raft_wordlist:
-                print(f"[Low] {urljoin(domain, result)}")
-        else:
-            # Gos to next iteration
+        try:
+            # Makes a request to the website
+            response = requests.get(urljoin(domain, result), headers=headers, timeout=10)
+
+            # Checks if the site is able to be accessed
+            if response.status_code == 200:
+                # Assesses the severity of the result
+                if result in critical_wordlists:
+                    print(f"[Critical] {urljoin(domain, result)}")
+                elif result in high_wordlists:
+                    print(f"[High] {urljoin(domain, result)}")
+                elif result in medium_wordlists:
+                    print(f"[Medium] {urljoin(domain, result)}")
+                elif result in low_wordlists:
+                    print(f"[Low] {urljoin(domain, result)}")
+        except Exception as e:
+            # Outputs error message if request fails
+            print(f"Error encountered while requesting {result}: {e}")
+
+            # Goes to next iteration
             continue
 
 def main():
