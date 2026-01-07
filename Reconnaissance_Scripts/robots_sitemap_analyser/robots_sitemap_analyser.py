@@ -160,7 +160,7 @@ def get_random_agent():
     # Returns the headers
     return {"User-Agent": user_agent}
 
-def analyse_robots(domain):
+def parse_robots(domain):
     # Lists to store disallowed and sitemaps
     disallowed = []
     sitemaps = []
