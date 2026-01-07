@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup, Comment
 from urllib.parse import urljoin
 import builtwith
+import time
 
 # Function to get random user agent from folder
 def get_random_agent():
@@ -185,6 +186,9 @@ def get_security_metadata(url):
 
 # Main function
 def main():
+    # Logs the starting time
+    start_time = time.perf_counter() 
+
     # Allows the user to enter the target
     target = input("Enter target URL (https://example.com): ")
 
@@ -284,6 +288,13 @@ def main():
                 print(f"{category}: {items}")
     else:
         print("[!] Please enter a target URL")
+
+    # Gets end time and calculates the elasped time
+    end_time = time.perf_counter()
+    elapsed = end_time - start_time
+
+    # Outputs the time
+    print(f"[✓] Finished in {elapsed:.2f} seconds")
 
 # Starts the program
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import os
 import shutil
 import json
+import time
 
 def move_files_to_folder(downloads_folder_path, sorted_files_location):
     # Loops through files to their file path
@@ -130,6 +131,9 @@ def move_files_to_folder(downloads_folder_path, sorted_files_location):
                 shutil.move(file,sorted_files_location + "/Unspecified")
 
 def main():
+    # Logs the starting time
+    start_time = time.perf_counter() 
+
     # Specifies the config file
     config_file = "Script-Vault/File-Management-Scripts/Downloaded Files Organiser/res/config.json"
     
@@ -145,6 +149,13 @@ def main():
 
     # Calls the move files function
     move_files_to_folder(downloads_folder_path,sorted_files_location)
+
+    # Gets end time and calculates the elasped time
+    end_time = time.perf_counter()
+    elapsed = end_time - start_time
+
+    # Outputs the time
+    print(f"[✓] Finished in {elapsed:.2f} seconds")
 
 # Starts the prorgam
 if __name__ == "__main__":

@@ -1,3 +1,8 @@
+'''
+
+unfinished script leave alone for now
+
+'''
 import os
 from rich import print
 from rich.progress import track

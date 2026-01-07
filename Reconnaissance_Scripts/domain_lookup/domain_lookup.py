@@ -1,6 +1,7 @@
 import dns.resolver
 import whois
 from datetime import datetime
+import time
 
 # Extracts the date and converts it to a a date time value
 def extract_date(value):
@@ -159,6 +160,9 @@ def get_soa_record(domain):
         print("Error encountered with SOA records")
 
 def main():
+    # Logs the starting time
+    start_time = time.perf_counter() 
+
     # Outputs a header
     print("=" * 30)
     print("Domain Record Lookup")
@@ -176,6 +180,13 @@ def main():
     get_txt_records(domain)
     get_cname_records(domain)
     get_soa_record(domain)
+
+    # Gets end time and calculates the elasped time
+    end_time = time.perf_counter()
+    elapsed = end_time - start_time
+
+    # Outputs the time
+    print(f"[✓] Finished in {elapsed:.2f} seconds")
 
 # Starts the script
 if __name__ == "__main__":
