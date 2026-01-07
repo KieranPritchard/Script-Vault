@@ -12,9 +12,9 @@ def load_wordlists():
         "git": "/usr/share/seclists/Discovery/Web-Content/versioning_metafiles.txt",
         "admin": "/usr/share/seclists/Discovery/Web-Content/CMS/admin-panels.txt",
         "api": "/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt",
-        "dev": "/usr/share/seclists/Discovery/Web-Content/Development/dev.txt",
-        "staging": "/usr/share/seclists/Discovery/Web-Content/Development/staging.txt",
-        "testing": "/usr/share/seclists/Discovery/Web-Content/Development/test.txt",
+        "dev": "/usr/share/seclists/Discovery/Web-Content/combined_words.txt",
+        "staging": "/usr/share/seclists/Discovery/Web-Content/raft-small-directories.txt",
+        "testing": "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt",
         "common": "/usr/share/seclists/Discovery/Web-Content/common.txt",
         "raft": "/usr/share/seclists/Discovery/Web-Content/raft-small-words.txt"
     }
