@@ -249,3 +249,29 @@ def parse_sitemap(domain):
     
     # Reutns the urls
     return urls
+
+def analyse_results(domain, results):
+    # Gets the random user agent
+    headers = get_random_agent()
+
+    # Loads the wordlists
+    config_wordlist, backup_wordlist, git_wordlist, admin_wordlist, api_wordlist, dev_wordlist, staging_wordlist, testing_wordlist, common_wordlist, raft_wordlist = load_wordlists()
+
+    # Loops over the results
+    for result in results:
+        # Makes a request to the websote
+        response = requests.get(urljoin(domain, result), headers=headers, timeout=10)
+        # Checks if the site is able to be accessed
+        if response.status_code == 200:
+            # Assesss the severity of the result
+            if result in config_wordlist or result in backup_wordlist or result in git_wordlist:
+                print(f"[Critical] {urljoin(domain, result)}")
+            elif result in admin_wordlist or result in api_wordlist:
+                print(f"[High] {urljoin(domain, result)}")
+            elif result in dev_wordlist or result in common_wordlist or result in staging_wordlist or result in testing_wordlist:
+                print(f"[Medium] {urljoin(domain, result)}")
+            elif result in raft_wordlist:
+                print(f"[Low] {urljoin(domain, result)}")
+        else:
+            # Gos to next iteration
+            continue
