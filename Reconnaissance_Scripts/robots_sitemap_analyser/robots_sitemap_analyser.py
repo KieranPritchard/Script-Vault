@@ -34,7 +34,7 @@ def load_wordlists():
     # Loops over each of the wordlists
     for wordlist in wordlists:
         # Checks the which wordlist is to be read
-        if wordlist == "Discovery/Web-Content/Files/config-files.txt":
+        if wordlist == "/usr/share/seclists/Discovery/Web-Content/Files/config-files.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -45,7 +45,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/Files/backup-files.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Files/backup-files.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -56,7 +56,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/Files/git-config.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Files/git-config.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -67,7 +67,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/CMS/admin-panels.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/CMS/admin-panels.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -78,7 +78,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/api/api-endpoints.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -89,7 +89,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/Development/dev.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Development/dev.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -100,7 +100,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/Development/staging.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Development/staging.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -111,7 +111,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/Development/test.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/Development/test.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -122,7 +122,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/common.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/common.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
@@ -133,7 +133,7 @@ def load_wordlists():
             except Exception as e:
                 # Outputs error message
                 print(f"Error encountered: {e}")
-        elif wordlist == "Discovery/Web-Content/raft-small-words.txt":
+        elif wordlist == "/usr/share/seclists/Discovery/Web-Content/raft-small-words.txt":
             try:
                 # Opens the file
                 with open(wordlist, "r") as f:
