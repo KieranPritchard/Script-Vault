@@ -188,6 +188,8 @@ def analyse_results(domain, results):
                     print(f"[Medium] {urljoin(domain, result)}")
                 elif result in low_wordlists:
                     print(f"[Low] {urljoin(domain, result)}")
+                else:
+                    print(f"[Unknown] {urljoin(domain, result)}")
         except Exception as e:
             # Outputs error message if request fails
             print(f"Error encountered while requesting {result}: {e}")
