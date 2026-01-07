@@ -3,6 +3,150 @@ import xml.etree.ElementTree as ET
 from urllib.parse import urljoin
 import requests
 
+def load_wordlists():
+    # Variables to store contents of the wordlists
+    config_wordlist = []
+    backup_wordlist = []
+    git_wordlist = []
+    admin_wordlist = []
+    api_wordlist = []
+    dev_wordlist = []
+    staging_wordlist = []
+    testing_wordlist = []
+    common_wordlist = []
+    raft_wordlist = []
+
+    # List to store wordlists paths
+    wordlists = [
+        "Discovery/Web-Content/Files/config-files.txt",
+        "Discovery/Web-Content/Files/backup-files.txt",
+        "Discovery/Web-Content/Files/git-config.txt",
+        "Discovery/Web-Content/CMS/admin-panels.txt",
+        "Discovery/Web-Content/api/api-endpoints.txt",
+        "Discovery/Web-Content/Development/dev.txt",
+        "Discovery/Web-Content/Development/staging.txt",
+        "Discovery/Web-Content/Development/test.txt",
+        "Discovery/Web-Content/common.txt",
+        "Discovery/Web-Content/raft-small-words.txt"
+    ]
+
+    # Loops over each of the wordlists
+    for wordlist in wordlists:
+        # Checks the which wordlist is to be read
+        if wordlist == "Discovery/Web-Content/Files/config-files.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        config_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/Files/backup-files.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        backup_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/Files/git-config.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        git_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/CMS/admin-panels.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        admin_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/api/api-endpoints.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        api_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/Development/dev.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        dev_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/Development/staging.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        staging_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/Development/test.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        testing_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/common.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        common_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+        elif wordlist == "Discovery/Web-Content/raft-small-words.txt":
+            try:
+                # Opens the file
+                with open(wordlist, "r") as f:
+                    # Loops over the contents of the file
+                    for line in f:
+                        # Adds line to the list
+                        raft_wordlist.append(line)
+            except Exception as e:
+                # Outputs error message
+                print(f"Error encountered: {e}")
+
+    # Returns the wordlists
+    return config_wordlist, backup_wordlist, git_wordlist, admin_wordlist, api_wordlist, dev_wordlist, staging_wordlist, testing_wordlist, common_wordlist, raft_wordlist
+
 # Function to get random user agent from folder
 def get_random_agent():
     # Opens the file
