@@ -7,9 +7,9 @@ import time
 def load_wordlists():
     # Dictionary to store wordlist names and their file paths
     wordlist_paths = {
-        "config": "/usr/share/seclists/Discovery/Web-Content/Files/config-files.txt",
-        "backup": "/usr/share/seclists/Discovery/Web-Content/Files/backup-files.txt",
-        "git": "/usr/share/seclists/Discovery/Web-Content/Files/git-config.txt",
+        "config": "/usr/share/seclists/Discovery/Web-Content/web-all-content-types.txt",
+        "backup": "/usr/share/seclists/Discovery/Web-Content/Common-DB-Backups.txt",
+        "git": "/usr/share/seclists/Discovery/Web-Content/git-config.txt",
         "admin": "/usr/share/seclists/Discovery/Web-Content/CMS/admin-panels.txt",
         "api": "/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt",
         "dev": "/usr/share/seclists/Discovery/Web-Content/Development/dev.txt",
