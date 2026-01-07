@@ -323,19 +323,12 @@ def main():
 
     # Outputs the dissallowed results are being analysed
     print("[+] Analysing disallowed results")
-    # Stores the analysed results
-    analysed_disallowed = analyse_results(domain, disallowed)
-    # Loops over the  analysed results
-    for i in analysed_disallowed:
-        # Outputs the anaysed paths
-        print(f"- {i}")
+    # calls the function 
+    analyse_results(domain, disallowed)
     
-    # Stores the analysed results
-    analysed_paths = analyse_results(domain, sitemap_paths)
-    # Loops over the  analysed results
-    for i in analysed_paths:
-        # Outputs the anaysed paths
-        print(f"- {i}")
+    print("[+] Analysing sitemap results")
+    # calls the function 
+    analyse_results(domain, sitemap_paths)
 
 if __name__ == "__main__":
     main()
