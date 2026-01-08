@@ -26,3 +26,13 @@ def output_results(result):
     for client in clients:
         # Outputs the ip and mac address
         print(f"IP: {client['ip']}    MAC: {client['mac']}")
+
+def main():
+    network = input("Please enter a network: ")
+
+    arp_result = send_arp(network)
+
+    output_results(arp_result)
+
+if __name__ == "__main__":
+    main()
