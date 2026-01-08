@@ -13,3 +13,16 @@ def send_arp(network):
     result = srp(packet, timeout=3, verbose=0)[0]
 
     return result
+
+# Function to output results
+def output_results(result):
+    # stores the client
+    clients = []
+    # Loops over the received communications in recevied
+    for sent, received in result:
+        # Adds the received data to client
+        clients.append({'ip': received.psrc,'mac': received.hwsrc})
+    # Loops over the list of clients
+    for client in clients:
+        # Outputs the ip and mac address
+        print(f"IP: {client['ip']}    MAC: {client['mac']}")
