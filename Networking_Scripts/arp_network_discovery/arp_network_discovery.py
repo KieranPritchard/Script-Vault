@@ -1,4 +1,4 @@
-from scapy import *
+from scapy.all import *
 
 # Function to send arp request to the network
 def send_arp(network):
