@@ -28,11 +28,35 @@ def output_results(result):
         print(f"IP: {client['ip']}    MAC: {client['mac']}")
 
 def main():
-    network = input("Please enter a network: ")
+    # Loops the input until it is accepted
+    while True:
+        try:
+            # Allows the user to enter
+            network = input("Please enter a network: ")
+            # Checks if network was inputed
+            if network:
+                # Breaks the loop
+                break
+        except Exception as e:
+            # Outputs error message
+            print(f"Error Encountered: {e}")
 
+    # Outputs message saying the program is sending arp packets
+    print("[+] Sending ARP packet to network")
+    # gets the arp result from the send arp function
     arp_result = send_arp(network)
 
-    output_results(arp_result)
+    # Checks if there is a arp result
+    if arp_result:
+        # Outputs the program found results
+        print("[+] Found results")
+        # Outputs the program is displaying the results
+        print("[+] Displaying results")
+        # outputs the results
+        output_results(arp_result)
+    else:
+        print("[-] Results not found")
 
+# Starts the program
 if __name__ == "__main__":
     main()
