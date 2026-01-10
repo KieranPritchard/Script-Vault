@@ -28,6 +28,9 @@ def output_results(result):
         print(f"IP: {client['ip']}    MAC: {client['mac']}")
 
 def main():
+    # Logs the starting time
+    start_time = time.perf_counter() 
+
     # Loops the input until it is accepted
     while True:
         try:
@@ -56,6 +59,13 @@ def main():
         output_results(arp_result)
     else:
         print("[-] Results not found")
+
+    # Gets end time and calculates the elasped time
+    end_time = time.perf_counter()
+    elapsed = end_time - start_time
+
+    # Outputs the time
+    print(f"[✓] Finished in {elapsed:.2f} seconds")
 
 # Starts the program
 if __name__ == "__main__":
