@@ -1,4 +1,5 @@
-from scapy.all import *
+from scapy.all import ARP, Ether, srp
+import time
 
 # Function to send arp request to the network
 def send_arp(network):
