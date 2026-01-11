@@ -18,3 +18,24 @@ if ! command -v nmap &> /dev/null; then
     # Exits the script
     exit 1
 fi
+
+# Stores the arguement in a variable
+target="$1"
+
+# Ouputs the scan has started
+echo "[+] Scanning $target for banners"
+
+# Gets the  results from the nmap scan
+results=$(nmap -sV --script=banner "$target" 2>/dev/null \
+    | grep "Nmap scan report for" \
+    | awk '{print $NF}')
+
+# Checks if there isnt any results
+if [ -z "$results" ]; then
+    # Outputs no live hosts found
+    echo "[-] No banners found."
+else
+    # Outputs results
+    echo "[+] Banners found"
+    echo "$results"
+fi
