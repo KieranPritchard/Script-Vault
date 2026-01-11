@@ -1,4 +1,5 @@
 import nmap
+import os
 
 # Function to open target file and load the targets
 def load_targets(file):
@@ -32,3 +33,17 @@ def scan_targets(targets):
                 state = scanner[target][proto][port]['state']
                 # Outputs the port and protcol with the state
                 print(f"  {port}/{proto} - {state}")
+
+def main():
+    while True:
+        try:
+            targets_list = input("Enter the path of the targets file: ")
+
+            if os.path.isfile(targets_list):
+                break
+        except Exception as e:
+            print(f"Error encountered: {e}")
+
+    targets = load_targets(targets_list)
+
+    scan_targets(targets)
