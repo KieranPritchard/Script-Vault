@@ -69,10 +69,10 @@ else
     # Checks if there isnt any results
     if [ -z "$results" ]; then
         # Outputs no live hosts found
-        echo "[-] No banners found."
+        echo "[-] No results found."
     else
         # Outputs results
-        echo "[+] Banners found"
+        echo "[+] Results found"
         echo "$results"
     fi
 fi
