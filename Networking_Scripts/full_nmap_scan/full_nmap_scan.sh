@@ -29,7 +29,7 @@ fi
 TARGET="$1"
 MODE="$2"
 DATE=$(date +"%Y-%m-%d_%H-%M-%S")
-OUTDIR="nmap_reports/quiet_vuln_${TARGET}_${DATE}"
+OUTDIR="nmap_reports/scan_${TARGET}_${DATE}"
 
 if [ "$MODE" = "save" ]; then
     # Creates directiory to store nmap reports
@@ -48,7 +48,7 @@ if [ "$MODE" = "save" ]; then
         -O \
         -A \
         --script=default,safe \
-        -T2 \
+        -T4 \
         -oA "$OUTDIR/full_scan" \
         "$TARGET"
 
@@ -64,7 +64,7 @@ else
     echo "[+] Starting Nmap scan against: $TARGET"
 
     # Gets the  results from the nmap scan
-    results=$(nmap -p- -sS -sV -O -A --script=default,safe -T2 "$TARGET" 2>/dev/null \
+    results=$(nmap -p- -sS -sV -O -A -T4 --script=default,safe "$TARGET" 2>/dev/null \
     | grep "Nmap scan report for" \
     | awk '{print $NF}')
 
