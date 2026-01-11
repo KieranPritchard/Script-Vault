@@ -24,7 +24,6 @@ cidr_range="$1"
 
 # Ouputs the scan has started
 echo "[+] Scanning CIDR range: $cidr_range"
-echo "[+] Live hosts found"
 
 # Gets the  results from the nmap scan
 results=$(nmap -sn "$cidr_range" 2>/dev/null \
@@ -37,5 +36,6 @@ if [ -z "$results" ]; then
     echo "[-] No live hosts found."
 else
     # Outputs results
+    echo "[+] Live hosts found"
     echo "$results"
 fi
