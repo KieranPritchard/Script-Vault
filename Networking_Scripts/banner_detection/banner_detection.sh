@@ -26,9 +26,7 @@ target="$1"
 echo "[+] Scanning $target for banners"
 
 # Gets the  results from the nmap scan
-results=$(nmap -sV --script=banner "$target" 2>/dev/null \
-    | grep "Nmap scan report for" \
-    | awk '{print $NF}')
+results=$(nmap -sV --script=banner "$target" 2>/dev/null | grep "open")
 
 # Checks if there isnt any results
 if [ -z "$results" ]; then

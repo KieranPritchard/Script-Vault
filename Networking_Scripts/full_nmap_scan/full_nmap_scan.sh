@@ -64,9 +64,7 @@ else
     echo "[+] Starting Nmap scan against: $TARGET"
 
     # Gets the  results from the nmap scan
-    results=$(nmap -p- -sS -sV -O -A -T4 --script=default,safe "$TARGET" 2>/dev/null \
-    | grep "Nmap scan report for" \
-    | awk '{print $NF}')
+    results=$(nmap -p- -sV --open -T4 "$TARGET" 2>/dev/null | grep "open")
 
     # Checks if there isnt any results
     if [ -z "$results" ]; then
