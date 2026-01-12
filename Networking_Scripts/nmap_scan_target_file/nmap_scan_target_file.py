@@ -38,22 +38,34 @@ def scan_targets(targets):
                 print(f"  {port}/{proto} - {state}")
 
 def main():
+    # Loops while input is not correct
     while True:
         try:
+            # asks for the targets file location
             targets_list = input("Enter the path of the targets file: ")
 
+            # Checks if the path is a file
             if os.path.isfile(targets_list):
+                # breaks the loop
                 break
             else:
+                # Outputs error message
                 print("[!] File not found. Try again.")
         except Exception as e:
+            # Outputs error message
             print(f"Error encountered: {e}")
 
+    # Outputs the targets are being loaded
     print(f"[+] Loading targets from {targets_list}")
+    # Stores the loaded targeets from the function
     targets = load_targets(targets_list)
+    # Checks if there are any targets returned
     if targets:
+        # Outputs the targets are loaded and number of targets scanned
         print(f"[+] Loaded targets from {targets_list}")
         print(f"[+] Scanning {len(targets)} Target(s)")
+        # Scanns the targets
         scan_targets(targets)
     else:
+        # Outputs there are no targets in the targets list
         print(f"[!] No targets from {targets_list}")
