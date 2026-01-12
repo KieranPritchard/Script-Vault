@@ -6,12 +6,15 @@ def load_targets(file):
     # Stores the targets in a list
     targets = []
     
-    # Opens the text file
-    with open(file, "r") as f:
-        # Loops over the file
-        for target in f:
-            # Adds the targets 
-            targets.append(target)
+    try:
+        # Opens the text file
+        with open(file, "r") as f:
+            # Loops over the file
+            for target in f:
+                # Adds the targets 
+                targets.append(target.strip())
+    except Exception as e:
+        print(f"Error encountered: {e}")
 
     return targets
 
@@ -41,11 +44,16 @@ def main():
 
             if os.path.isfile(targets_list):
                 break
+            else:
+                print("[!] File not found. Try again.")
         except Exception as e:
             print(f"Error encountered: {e}")
 
     print(f"[+] Loading targets from {targets_list}")
     targets = load_targets(targets_list)
-    print(f"[+] Loaded targets from {targets_list}")
-    print(f"[+] Scanning {len(targets)} Target(s)")
-    scan_targets(targets)
+    if targets:
+        print(f"[+] Loaded targets from {targets_list}")
+        print(f"[+] Scanning {len(targets)} Target(s)")
+        scan_targets(targets)
+    else:
+        print(f"[!] No targets from {targets_list}")
