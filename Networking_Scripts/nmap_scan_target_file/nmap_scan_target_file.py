@@ -24,7 +24,7 @@ def scan_targets(targets):
         # Scans the target for services and os detection
         scanner.scan(target, arguments="-sV -O -T4")
         # Outputs the target being scanned 
-        print(f"Scan for {target}:")
+        print(f"[+] Scan for {target}:")
         # Loops over the protocols in the targe
         for proto in scanner[target].all_protocols():
             # Looping over the ports in the targets
@@ -44,6 +44,8 @@ def main():
         except Exception as e:
             print(f"Error encountered: {e}")
 
+    print(f"[+] Loading targets from {targets_list}")
     targets = load_targets(targets_list)
-
+    print(f"[+] Loaded targets from {targets_list}")
+    print(f"[+] Scanning {len(targets)} Target(s)")
     scan_targets(targets)
