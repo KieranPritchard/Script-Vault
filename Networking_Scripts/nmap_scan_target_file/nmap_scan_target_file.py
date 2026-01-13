@@ -18,14 +18,14 @@ def load_targets(file):
 
     return targets
 
-def scan_targets(targets):
+def scan_targets(targets,speed):
     # Creates scanner object
     scanner = nmap.PortScanner()
 
     # Loops over the targets
     for target in targets:
         # Scans the target for services and os detection
-        scanner.scan(target, arguments="-sV -O -T4")
+        scanner.scan(target, arguments=f"-sV -O -T{speed}")
         # Outputs the target being scanned 
         print(f"[+] Scan for {target}:")
         # Loops over the protocols in the targe
@@ -55,6 +55,23 @@ def main():
             # Outputs error message
             print(f"Error encountered: {e}")
 
+    # Loops while input is not correct
+    while True:
+        try:
+            # asks for the targets file location
+            speed = input("Enter the scan speed (1-5): ")
+
+            # Checks if the path is a file
+            if speed in range(1,5):
+                # breaks the loop
+                break
+            else:
+                # Outputs error message
+                print("[!] File not found. Try again.")
+        except Exception as e:
+            # Outputs error message
+            print(f"Error encountered: {e}")
+
     # Outputs the targets are being loaded
     print(f"[+] Loading targets from {targets_list}")
     # Stores the loaded targeets from the function
@@ -65,7 +82,7 @@ def main():
         print(f"[+] Loaded targets from {targets_list}")
         print(f"[+] Scanning {len(targets)} Target(s)")
         # Scanns the targets
-        scan_targets(targets)
+        scan_targets(targets, speed)
     else:
         # Outputs there are no targets in the targets list
         print(f"[!] No targets from {targets_list}")
