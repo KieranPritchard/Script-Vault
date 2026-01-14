@@ -18,24 +18,39 @@ def load_targets(file):
 
     return targets
 
-def scan_targets(targets,speed):
-    # Creates scanner object
+def scan_targets(targets, speed):
     scanner = nmap.PortScanner()
 
-    # Loops over the targets
     for target in targets:
-        # Scans the target for services and os detection
-        scanner.scan(target, arguments=f"-sV -O -T{speed}")
-        # Outputs the target being scanned 
-        print(f"[+] Scan for {target}:")
-        # Loops over the protocols in the targe
-        for proto in scanner[target].all_protocols():
-            # Looping over the ports in the targets
-            for port in scanner[target][proto]:
-                # Gets the state 
-                state = scanner[target][proto][port]['state']
-                # Outputs the port and protcol with the state
-                print(f"  {port}/{proto} - {state}")
+        print(f"[+] Scanning {target}")
+
+        try:
+            scanner.scan(target, arguments=f"-sV -T{speed}")
+        except nmap.PortScannerError as e:
+            print(f"[!] Nmap error: {e}")
+            continue
+
+        hosts = scanner.all_hosts()
+        if not hosts:
+            print("[!] No hosts responded")
+            continue
+
+        for host in hosts:
+            print(f"[+] Host: {host} ({scanner[host].hostname()})")
+
+            if scanner[host].state() != "up":
+                print(f"[!] Host is {scanner[host].state()}")
+                continue
+
+            protocols = scanner[host].all_protocols()
+            if not protocols:
+                print("[!] No open ports found")
+                continue
+
+            for proto in protocols:
+                for port in scanner[host][proto]:
+                    state = scanner[host][proto][port]['state']
+                    print(f"  {port}/{proto} - {state}")
 
 def main():
     # Loops while input is not correct
