@@ -59,7 +59,7 @@ def main():
     while True:
         try:
             # asks for the targets file location
-            speed = input("Enter the scan speed (1-5): ")
+            speed = int(input("Enter the scan speed (1-5): "))
 
             # Checks if the path is a file
             if speed in range(1,5):
@@ -86,3 +86,6 @@ def main():
     else:
         # Outputs there are no targets in the targets list
         print(f"[!] No targets from {targets_list}")
+
+if __name__ == "__main__":
+    main()
