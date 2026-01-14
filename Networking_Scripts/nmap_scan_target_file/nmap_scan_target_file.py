@@ -42,6 +42,14 @@ def scan_targets(targets, speed):
                 print(f"[!] Host is {scanner[host].state()}")
                 continue
 
+            # 🔍 OS Detection Output
+            if 'osmatch' in scanner[host] and scanner[host]['osmatch']:
+                print("[+] OS Detection:")
+                for osmatch in scanner[host]['osmatch']:
+                    print(f"    {osmatch['name']} ({osmatch['accuracy']}%)")
+            else:
+                print("[!] No OS fingerprint available")
+
             protocols = scanner[host].all_protocols()
             if not protocols:
                 print("[!] No open ports found")
