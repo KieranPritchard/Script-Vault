@@ -55,6 +55,7 @@ def scan_targets(targets, speed):
                 print("[!] No open ports found")
                 continue
 
+            print("[+] Open Ports:")
             for proto in protocols:
                 for port in scanner[host][proto]:
                     state = scanner[host][proto][port]['state']
