@@ -25,7 +25,7 @@ def scan_targets(targets, speed):
         print(f"[+] Scanning {target}")
 
         try:
-            scanner.scan(target, arguments=f"-sV -T{speed}")
+            scanner.scan(target, arguments=f"-sV -O -T{speed}")
         except nmap.PortScannerError as e:
             print(f"[!] Nmap error: {e}")
             continue
