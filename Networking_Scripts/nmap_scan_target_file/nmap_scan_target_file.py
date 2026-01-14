@@ -59,7 +59,7 @@ def scan_targets(targets, speed):
             for proto in protocols:
                 for port in scanner[host][proto]:
                     state = scanner[host][proto][port]['state']
-                    print(f"  {port}/{proto} - {state}")
+                    print(f"    {port}/{proto} - {state}")
 
 def main():
     # Loops while input is not correct
