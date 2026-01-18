@@ -22,7 +22,7 @@ fi
 # checks for if there is a required arguement
 if [ -z "$TARGET" ]; then
     # Outputs usage guide and example of use
-    echo "Usage $0 <Target> <save>"
+    echo "Usage $0 <Target>"
     echo "Example: $0 192.168.1.0"
     # Exits the script
     exit 1
@@ -32,7 +32,7 @@ fi
     echo "[+] Starting Nmap scan against: $TARGET"
 
     # Gets the  results from the nmap scan
-    results=$(nmap -sS -Pn -p- --reason "$TARGET" 2>/dev/null | grep "open")
+    results=$(nmap -sS -Pn -p- --reason "$TARGET" 2>/dev/null | grep -E "open|filtered")
 
     # Checks if there isnt any results
     if [ -z "$results" ]; then
