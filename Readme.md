@@ -6,7 +6,9 @@
     <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/t/KieranPritchard/Script-Vault?style=flat-square">
     <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/KieranPritchard/Script-Vault?style=flat-square">
     <img alt="GitHub language count" src="https://img.shields.io/github/languages/count/KieranPritchard/Script-Vault?style=flat-square">
-    <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/KieranPritchard/Script-Vault?style=flat-square">
+    <div>
+        <img alt="Header Image" src="https://github.com/KieranPritchard/Script-Vault/blob/main/Resources/Gemini_Generated_Image_f37h11f37h11f37h.png">
+    </div>
 
 **A centralized collection of automation scripts and utility tools designed to streamline workflows and sharpen my programming skills.**
 **Note:** Any incomplete scripts without a write up are being worked. 
