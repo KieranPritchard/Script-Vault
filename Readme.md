@@ -11,7 +11,8 @@
     </div>
 
 **A centralized collection of automation scripts and utility tools designed to streamline workflows and sharpen my programming skills.**
-**Note:** Any incomplete scripts without a write up are being worked. 
+
+**Note:** Any incomplete scripts without a write up are being worked on. 
 </div>
 
 ---
