@@ -71,6 +71,26 @@ class SQLIDetection:
                 return f"[!] VULNERABLE: Time-based found with payload: {payload}"
         # Returns none
         return None
+    
+    # Function to run a program
+    def run(self):
+        # Stores the results from each of the methods
+        results = [
+            self.check_error_based(),
+            self.check_boolean_based(),
+            self.check_time_based()
+        ]
+        
+        # Creates a list of the found results using list comphrehention
+        found = [result for result in results if results]
+        # Checks if there is anything found
+        if found:
+            # Loops over the entrys in found and prints them
+            for f in found: print(f)
+            print("\n[+] Recommendation: Proceed with sqlmap -u " + self.target_url)
+        else:
+            # Prints no obivous vulnerabilites found
+            print("[-] No obvious vulnerabilities detected.")
 
 # Function to get random user agent from folder
 def get_random_agent():
@@ -108,3 +128,14 @@ def get_errors_messages():
 
     # Returns the errors message
     return error_list
+
+def main():
+    # Allows the user to enter in a url to scan
+    url = input("Enter URL to scan (e.g., http://testphp.vulnweb.com/listproducts.php?cat=1): ")
+    # Creates and runs the scanner
+    scanner = SQLIDetection(url)
+    scanner.run()
+
+# Starts the program
+if __name__ == "__main__":
+    main()
