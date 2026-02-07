@@ -52,6 +52,26 @@ class SQLIDetection:
         # Returns false
         return None
 
+    # Checks for time based sql injection
+    def check_time_based(self):
+        # Outputs checks for time based sqli
+        print("[*] Testing for Time-based SQLi (this may take a moment)...")
+        
+        # Loops over the payloads in the time payloads
+        for payload in self.payloads["time"]:
+            # Records the starting time
+            start = time.time()
+            # Sends the request
+            self.session.get(self.target_url + payload)
+            # Calculates the duration
+            duration = time.time() - start
+            # Checks the duaration is more than five secomds
+            if duration >= 5:
+                # Returns which payload triggered
+                return f"[!] VULNERABLE: Time-based found with payload: {payload}"
+        # Returns none
+        return None
+
 # Function to get random user agent from folder
 def get_random_agent():
     # Opens the file
