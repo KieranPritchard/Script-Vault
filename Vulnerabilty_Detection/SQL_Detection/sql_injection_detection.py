@@ -11,9 +11,27 @@ class SQLIDetection:
     def __init__(self, target_url, payloads, errors):
         self.target_url = target_url # Stores the target url
         self.payloads = payloads # Stores the payloads
-        self.errors = errors # Stores the errors
+        self.errors_sigatures = errors # Stores the errors
         self.session = requests.Session() # Creates a new user session
         self.baseline_content = self.session.get(target_url).content # Set a baseline to compare against
+
+    # Function to check error based injection
+    def check_error_based(self):
+        # Outputs there is a check for the error based sql injection
+        print("[*] Testing for Error-based SQLi...")
+
+        # Loops over the payloads
+        for payload in self.payloads["error"]:
+            # Gets the response from the page with the payload
+            response = self.session.get(self.target_url + payload, headers=get_random_agent(), timeout=10)
+            # Loops over the signatures in the errors list
+            for signature in self.errors_sigatures:
+                # Checks if the signature is in the response text
+                if signature in response.text.lower():
+                    return f"[!] VULNERABLE: Error-based found with payload: {payload}"
+    
+        # Returns none if nothing was found
+        return None
 
 # Function to get random user agent from folder
 def get_random_agent():
