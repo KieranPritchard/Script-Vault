@@ -32,6 +32,25 @@ class SQLIDetection:
     
         # Returns none if nothing was found
         return None
+    
+    # Checks for boolean based injection
+    def check_boolean_based(self):
+        # Outputs testing for boolean based sqli
+        print("[*] Testing for Boolean-based SQLi...")
+        # Loops over the payloads in the boolean payloads
+        for payload in self.payloads["boolean"]:
+            # Stores the true and false response
+            res_true = self.session.get(self.target_url + payload["true"])
+            res_false = self.session.get(self.target_url + payload["false"])
+            
+            # If the "True" payload matches the baseline but "False" doesn't, it's vulnerable
+            if len(res_true.content) != len(res_false.content):
+                # Checks if the content is the same
+                if len(res_true.content) == len(self.baseline_content):
+                    # Returns the payload which was found
+                    return f"[!] VULNERABLE: Boolean-based found with {payload['true']}"
+        # Returns false
+        return None
 
 # Function to get random user agent from folder
 def get_random_agent():
