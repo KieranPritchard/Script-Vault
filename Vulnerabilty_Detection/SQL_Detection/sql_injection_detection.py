@@ -5,6 +5,16 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import xml.etree.ElementTree as ET
 
+# Class to store sqli injection logic
+class SQLIDetection:
+    # initalises the variable
+    def __init__(self, target_url, payloads, errors):
+        self.target_url = target_url # Stores the target url
+        self.payloads = payloads # Stores the payloads
+        self.errors = errors # Stores the errors
+        self.session = requests.Session() # Creates a new user session
+        self.baseline_content = self.session.get(target_url).content # Set a baseline to compare against
+
 # Function to get random user agent from folder
 def get_random_agent():
     # Opens the file
