@@ -17,3 +17,27 @@ def get_random_agent():
 
     # Returns the headers
     return {"User-Agent": user_agent}
+
+def get_errors_messages():
+    # Stores the error to be returned
+    error_list = []
+    
+    # SQL Errors file
+    # Note: Using the raw URL so requests grabs the XML data, not the GitHub webpage HTML
+    error_file = "https://raw.githubusercontent.com/sqlmapproject/sqlmap/master/data/xml/errors.xml"
+
+    # Gets the errors from the error file
+    errors = requests.get(error_file)
+
+    # Creates the element tree object
+    root = ET.fromstring(errors.content)
+
+    # Loops over the tree root for dbms items
+    for item in root.findall("dbms"):
+        # Loops over the child elements
+        for child in item:
+            # Adds the error pattern to the arrary which stores them
+            error_list.append(child.get('regexp'))
+
+    # Returns the errors message
+    return error_list
