@@ -2,6 +2,7 @@ import requests
 import time
 import random
 import re
+import difflib
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import xml.etree.ElementTree as ET
@@ -15,6 +16,11 @@ class SQLIDetection:
         self.errors_sigatures = errors # Stores the errors
         self.session = requests.Session() # Creates a new user session
         self.baseline_content = self.session.get(target_url).content # Set a baseline to compare against
+
+    # Compares the similarity
+    def get_similarity(self, text1, text2):
+        # Returns a float between 0.0 and 1.0 representing similarity.
+        return difflib.SequenceMatcher(None, text1, text2).ratio()
 
     # Function to check error based injection
     def check_error_based(self):
@@ -47,12 +53,16 @@ class SQLIDetection:
                 res_true = self.session.get(self.target_url + payload["true"], headers=get_random_agent())
                 res_false = self.session.get(self.target_url + payload["false"], headers=get_random_agent())
                 
-                # If the "True" payload matches the baseline but "False" doesn't, it's vulnerable
-                if len(res_true.content) != len(res_false.content):
-                    # Checks if the content is the same
-                    if len(res_true.content) == len(self.baseline_content):
-                        # Returns the payload which was found
-                        return f"[!] VULNERABLE: Boolean-based found with {payload['true']}"
+                # Fuzzy Logic: 
+                # Is 'True' similar to baseline? (Should be > 0.95)
+                # Is 'False' different from 'True'? (Should be < 0.90)
+                true_ratio = self.get_similarity(res_true.text, self.baseline_content)
+                diff_ratio = self.get_similarity(res_true.text, res_false.text)
+
+                # Checks if ratios are different
+                if true_ratio > 0.98 and diff_ratio < 0.95:
+                    # Returns vulnerable payload found
+                    return f"[!] VULNERABLE: Boolean-based found with {payload['true']} (Similarity drop: {diff_ratio:.2f})"           
             except: continue # Continues to the next iternation
         # Returns false
         return None
