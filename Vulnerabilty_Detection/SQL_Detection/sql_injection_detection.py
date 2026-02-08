@@ -149,7 +149,9 @@ class SQLIDetection:
         
         # Loops over the payloads in the time payloads
         for payload in self.payloads["time"]:
+            # Gets the injected urls
             urls = self.get_injected_urls(payload)
+            # Loops over the urls
             for url in urls:
                 try:
                     # Records the starting time
@@ -178,9 +180,65 @@ class SQLIDetection:
             res = self.session.get(self.target_url, headers=headers)
             # Checks for errors in the response
             for sig in self.errors_signatures:
+                # Searches for the regular expression
                 if re.search(sig, res.text, re.IGNORECASE):
+                    # Returns vulnerable
                     return f"[!] VULNERABLE: Header-based SQLi found in Referer!"
         except: pass
+        return None
+
+    # Finds all forms on the page and tests the input fields
+    def check_post_forms(self):
+        # Outputs that we are starting form scanning
+        print("[*] Searching for HTML forms to test POST-based SQLi...")
+        
+        # Uses BeautifulSoup to find all form tags
+        soup = BeautifulSoup(self.baseline_content, "html.parser")
+        forms = soup.find_all("form")
+        
+        # Loops through every form found on the page
+        for form in forms:
+            action = form.attrs.get("action")
+            # Joins the relative action (e.g., /login.jsp) with the base URL
+            post_url = urljoin(self.target_url, action)
+            method = form.attrs.get("method", "get").lower()
+            
+            # We only care about POST forms for this specific check
+            if method == "post":
+                # Gets all input fields in the form
+                inputs = []
+                # Loops over the input tag
+                for input_tag in form.find_all("input"):
+                    # Gets the name from the input tage
+                    name = input_tag.attrs.get("name")
+                    # Gets the tage type and text
+                    type = input_tag.attrs.get("type", "text")
+                    # Checks if there is name
+                    if name:
+                        # Adds it to inputs
+                        inputs.append({"name": name, "type": type})
+
+                # Loops through our error payloads to test the form fields
+                for payload in self.payloads["error"]:
+                    # Stores the data
+                    data = {}
+                    # Loops over the input in inputs
+                    for iput in inputs:
+                        # Checks for if the type is submit
+                        if iput["type"] != "submit":
+                            data[iput["name"]] = payload # Fills every box with the payload
+                    
+                    try:
+                        self.jitter()
+                        # Sends the POST request to the form's action URL
+                        res = self.session.post(post_url, data=data, headers=get_random_agent())
+                        
+                        # Checks the response for DB errors
+                        for sig in self.errors_signatures:
+                            # Searches for the error
+                            if re.search(sig, res.text, re.IGNORECASE):
+                                return f"[!] VULNERABLE: POST-based SQLi found at {post_url} in form field!"
+                    except: continue
         return None
     
     # Function to run a program
@@ -193,7 +251,8 @@ class SQLIDetection:
             self.check_error_based(),
             self.check_boolean_based(),
             self.check_time_based(),
-            self.check_header_injection()
+            self.check_header_injection(),
+            self.check_post_forms()
         ]
         
         # Creates a list of the found results
