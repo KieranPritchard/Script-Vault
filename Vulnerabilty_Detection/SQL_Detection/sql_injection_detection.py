@@ -3,8 +3,9 @@ import time
 import random
 import re
 import difflib
+import os
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
 import xml.etree.ElementTree as ET
 
 # Class to store sqli injection logic
@@ -13,9 +14,79 @@ class SQLIDetection:
     def __init__(self, target_url, payloads, errors):
         self.target_url = target_url # Stores the target url
         self.payloads = payloads # Stores the payloads
-        self.errors_sigatures = errors # Stores the errors
+        self.errors_signatures = errors # Stores the errors
         self.session = requests.Session() # Creates a new user session
-        self.baseline_content = self.session.get(target_url).content # Set a baseline to compare against
+        self.noise_threshold = 0.0 # Stores the noise threshold
+        self.baseline_content = self.establish_stable_baseline() # Set a stable baseline to compare against
+
+    # Jitters the program to prevent detection from a WAF
+    def jitter(self):
+        # Sleeps for a random time
+        time.sleep(random.uniform(0.5, 2.0))
+
+    # Establishes a stable baseline to handle noisy pages
+    def establish_stable_baseline(self):
+        # Outputs establishing a baseline
+        print("[*] Establishing stable baseline and noise threshold...")
+        samples = []
+        # Loops three times to get samples
+        for i in range(3):
+            res = self.session.get(self.target_url, headers=get_random_agent())
+            samples.append(res.text)
+            if i < 2: time.sleep(1)
+        
+        # Calculates the similarity between the samples to find noise
+        ratio1 = self.get_similarity(samples[0], samples[1])
+        ratio2 = self.get_similarity(samples[1], samples[2])
+        
+        # Calculates the noise threshold
+        avg_similarity = (ratio1 + ratio2) / 2
+        self.noise_threshold = 1.0 - avg_similarity
+        
+        # Outputs the noise level found
+        print(f"[+] Natural page noise detected: {self.noise_threshold:.4f}")
+        return samples[0]
+
+    # Injects payloads into specific URL parameters
+    def get_injected_urls(self, payload):
+        # Parses the URL components
+        parsed_url = urlparse(self.target_url)
+        # Gets the parameters
+        params = parse_qs(parsed_url.query)
+        injected_urls = []
+
+        # Loops over each parameter to inject separately
+        for target_param in params:
+            new_params = {key: val[:] for key, val in params.items()}
+            original_val = new_params[target_param][0]
+            # Adds the payload to the parameter value
+            new_params[target_param] = [f"{original_val}{payload}"]
+            
+            # Rebuilds the URL with the injected parameter
+            new_query = urlencode(new_params, doseq=True)
+            new_url = urlunparse(parsed_url._replace(query=new_query))
+            injected_urls.append(new_url)
+            
+        return injected_urls
+
+    # Checks for a WAF before scanning
+    def check_waf(self):
+        # Dictionary of WAF signatures
+        waf_signatures = {
+            "Cloudflare": "cf-ray",
+            "Akamai": "akamai-ch",
+            "ModSecurity": "mod_security",
+            "Barracuda": "barra_counter_session"
+        }
+        # Outputs checking for WAF
+        print("[*] Checking for WAF/IPS...")
+        res = self.session.get(self.target_url, headers=get_random_agent())
+        # Loops through signatures to find a match
+        for name, signature in waf_signatures.items():
+            if signature in str(res.headers).lower() or signature in res.text.lower():
+                print(f"[!] Warning: {name} WAF detected. Proceed with caution.")
+                return True
+        return False
 
     # Compares the similarity
     def get_similarity(self, text1, text2):
@@ -25,126 +96,152 @@ class SQLIDetection:
     # Function to check error based injection
     def check_error_based(self):
         # Outputs there is a check for the error based sql injection
-        print("[*] Testing for Error-based SQLi...")
+        print("[*] Testing for Error-based SQLi (All Parameters)...")
 
         # Loops over the payloads
         for payload in self.payloads["error"]:
-            try:
-                # Gets the response from the page with the payload
-                response = self.session.get(self.target_url + payload, headers=get_random_agent(), timeout=10)
-                # Loops over the signatures in the errors list
-                for signature in self.errors_sigatures:
-                    # Checks if the signature is in the response text
-                    if re.search(signature, response.text, re.IGNORECASE):
-                        return f"[!] VULNERABLE: Error-based found with payload: {payload} (Matched: {signature})"
-            except: continue
-    
-        # Returns none if nothing was found
+            # Gets injected urls for each parameter
+            urls = self.get_injected_urls(payload)
+            for url in urls:
+                try:
+                    self.jitter()
+                    # Gets the response from the page with the payload
+                    response = self.session.get(url, headers=get_random_agent(), timeout=10)
+                    # Loops over the signatures in the errors list
+                    for signature in self.errors_signatures:
+                        # Checks if the signature is in the response text
+                        if re.search(signature, response.text, re.IGNORECASE):
+                            return f"[!] VULNERABLE: Error-based found on {url} (Matched: {signature})"
+                except: continue
         return None
     
     # Checks for boolean based injection
     def check_boolean_based(self):
         # Outputs testing for boolean based sqli
-        print("[*] Testing for Boolean-based SQLi...")
+        print("[*] Testing for Boolean-based SQLi (All Parameters)...")
         # Loops over the payloads in the boolean payloads
-        for payload in self.payloads["boolean"]:
-            try:
-                # Stores the true and false response
-                res_true = self.session.get(self.target_url + payload["true"], headers=get_random_agent())
-                res_false = self.session.get(self.target_url + payload["false"], headers=get_random_agent())
-                
-                # Fuzzy Logic: 
-                # Is 'True' similar to baseline? (Should be > 0.95)
-                # Is 'False' different from 'True'? (Should be < 0.90)
-                true_ratio = self.get_similarity(res_true.text, self.baseline_content)
-                diff_ratio = self.get_similarity(res_true.text, res_false.text)
+        for payload_set in self.payloads["boolean"]:
+            # Gets urls for both true and false payloads
+            urls_true = self.get_injected_urls(payload_set["true"])
+            urls_false = self.get_injected_urls(payload_set["false"])
 
-                # Checks if ratios are different
-                if true_ratio > 0.98 and diff_ratio < 0.95:
-                    # Returns vulnerable payload found
-                    return f"[!] VULNERABLE: Boolean-based found with {payload['true']} (Similarity drop: {diff_ratio:.2f})"           
-            except: continue # Continues to the next iternation
-        # Returns false
+            for i in range(len(urls_true)):
+                try:
+                    self.jitter()
+                    # Stores the true and false response
+                    res_true = self.session.get(urls_true[i], headers=get_random_agent())
+                    res_false = self.session.get(urls_false[i], headers=get_random_agent())
+                    
+                    # Fuzzy Logic adjusted by noise threshold
+                    diff_sim = self.get_similarity(res_true.text, res_false.text)
+
+                    # Checks if similarity drop is greater than noise plus margin
+                    if diff_sim < (1.0 - self.noise_threshold - 0.05):
+                        # Returns vulnerable payload found
+                        return f"[!] VULNERABLE: Boolean-based found on {urls_true[i]} (Similarity: {diff_sim:.2f})"           
+                except: continue 
         return None
 
     # Checks for time based sql injection
     def check_time_based(self):
         # Outputs checks for time based sqli
-        print("[*] Testing for Time-based SQLi (this may take a moment)...")
+        print("[*] Testing for Time-based SQLi (All Parameters)...")
         
         # Loops over the payloads in the time payloads
         for payload in self.payloads["time"]:
-            try:
-                # Records the starting time
-                start = time.time()
-                # Sends the request
-                self.session.get(self.target_url + payload, headers=get_random_agent(), timeout=15)
-                # Calculates the duration
-                duration = time.time() - start
-                # Checks the duaration is more than five secomds
-                if duration >= 5:
-                    # Returns which payload triggered
-                    return f"[!] VULNERABLE: Time-based found with payload: {payload}"
-            except requests.exceptions.Timeout:
-                return f"[!] VULNERABLE: Time-based (Timeout triggered) with payload: {payload}"
-        # Returns none
+            urls = self.get_injected_urls(payload)
+            for url in urls:
+                try:
+                    # Records the starting time
+                    start = time.time()
+                    # Sends the request
+                    self.session.get(url, headers=get_random_agent(), timeout=15)
+                    # Calculates the duration
+                    duration = time.time() - start
+                    # Checks the duaration is more than five secomds
+                    if duration >= 5:
+                        # Returns which payload triggered
+                        return f"[!] VULNERABLE: Time-based found on {url}"
+                except requests.exceptions.Timeout:
+                    return f"[!] VULNERABLE: Time-based (Timeout triggered) on {url}"
+        return None
+
+    # Checks for SQLi in the HTTP headers
+    def check_header_injection(self):
+        # Outputs testing for header injection
+        print("[*] Testing for Header-based SQLi (Referer)...")
+        payload = "'"
+        headers = get_random_agent()
+        # Injects payload into the Referer header
+        headers["Referer"] = f"http://google.com/{payload}"
+        try:
+            res = self.session.get(self.target_url, headers=headers)
+            # Checks for errors in the response
+            for sig in self.errors_signatures:
+                if re.search(sig, res.text, re.IGNORECASE):
+                    return f"[!] VULNERABLE: Header-based SQLi found in Referer!"
+        except: pass
         return None
     
     # Function to run a program
     def run(self):
+        # Runs the WAF check first
+        self.check_waf()
+        
         # Stores the results from each of the methods
         results = [
             self.check_error_based(),
             self.check_boolean_based(),
-            self.check_time_based()
+            self.check_time_based(),
+            self.check_header_injection()
         ]
         
-        # Creates a list of the found results using list comphrehention
-        found = [result for result in results if results]
+        # Creates a list of the found results
+        found = [result for result in results if result is not None]
         # Checks if there is anything found
         if found:
-            # Loops over the entrys in found and prints them
+            # Loops over entries and prints them
             for f in found: print(f)
-            print("\n[+] Recommendation: Proceed with sqlmap -u " + self.target_url)
+            print(f"\n[+] Recommendation: Proceed with: sqlmap -u \"{self.target_url}\" --batch --random-agent")
         else:
             # Prints no obivous vulnerabilites found
             print("[-] No obvious vulnerabilities detected.")
 
 # Function to get random user agent from folder
 def get_random_agent():
-    # Opens the file
-    with open("../../Resources/user_agent_strings.txt", "r") as f:
-        # Extracts the user agents as a list
-        user_agents = [user_agent.strip() for user_agent in f if user_agent.strip()]
+    # Fallback agents if file is missing
+    user_agents = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"]
+    # Path to the user agent file
+    ua_path = "../../Resources/user_agent_strings.txt"
+    
+    if os.path.exists(ua_path):
+        # Opens the file
+        with open(ua_path, "r") as f:
+            # Extracts the user agents as a list
+            user_agents = [ua.strip() for ua in f if ua.strip()]
 
-    # Selects a random index
-    user_agent = random.choice(user_agents)
-
-    # Returns the headers
-    return {"User-Agent": user_agent}
+    # Returns the headers with a random agent
+    return {"User-Agent": random.choice(user_agents)}
 
 def get_errors_messages():
     # Stores the error to be returned
     error_list = []
-    
-    # SQL Errors file
-    # Note: Using the raw URL so requests grabs the XML data, not the GitHub webpage HTML
+    # SQL Errors file from sqlmap
     error_file = "https://raw.githubusercontent.com/sqlmapproject/sqlmap/master/data/xml/errors.xml"
+    try:
+        # Gets the errors from the error file
+        errors = requests.get(error_file)
+        # Creates the element tree object
+        root = ET.fromstring(errors.content)
+        # Loops over the tree root for dbms items
+        for item in root.findall("dbms"):
+            for child in item:
+                # Adds the error pattern to the array
+                error_list.append(child.get('regexp'))
+    except:
+        # Fallback if the remote file cannot be reached
+        return ["sql syntax", "mysql_fetch", "ora-00933", "sqlite3.operationalerror"]
 
-    # Gets the errors from the error file
-    errors = requests.get(error_file)
-
-    # Creates the element tree object
-    root = ET.fromstring(errors.content)
-
-    # Loops over the tree root for dbms items
-    for item in root.findall("dbms"):
-        # Loops over the child elements
-        for child in item:
-            # Adds the error pattern to the arrary which stores them
-            error_list.append(child.get('regexp'))
-
-    # Returns the errors message
     return error_list
 
 def main():
@@ -162,10 +259,10 @@ def main():
     errors = get_errors_messages()
 
     # Allows the user to enter in a url to scan
-    url = input("Enter URL to scan (e.g., http://testphp.vulnweb.com/listproducts.php?cat=1): ").strip().lower()
+    url = input("Enter URL to scan (e.g., http://site.com/page.php?id=1): ").strip()
     
-    # CHecks if the url starts with http
-    if not url.startswith("http"):
+    # Checks if the url starts with http
+    if not url.lower().startswith("http"):
         # Outputs it is an invaild url
         print("[!] Invalid URL.")
         return
