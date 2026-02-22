@@ -1,0 +1,59 @@
+SQLi Scan Results for http://testphp.vulnweb.com/login.php
+--------------------------------------------------
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/listproducts.php?artist=3%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/product.php?pic=6%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/product.php?pic=6+AND+1%3D1 (Similarity: 0.88)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/userinfo.php in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/product.php?pic=1%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/product.php?pic=1+AND+1%3D1 (Similarity: 0.88)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/artists.php?artist=2%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/artists.php?artist=2+AND+1%3D1 (Similarity: 0.87)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/listproducts.php?cat=1%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/listproducts.php?cat=1+AND+1%3D1 (Similarity: 0.75)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/product.php?pic=5%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/product.php?pic=5+AND+1%3D1 (Similarity: 0.88)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/product.php?pic=7%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/product.php?pic=7+AND+1%3D1 (Similarity: 0.94)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/product.php?pic=4%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/product.php?pic=4+AND+1%3D1 (Similarity: 0.88)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/listproducts.php?artist=2%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/product.php?pic=3%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/product.php?pic=3+AND+1%3D1 (Similarity: 0.88)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/listproducts.php?cat=4%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/listproducts.php?cat=3%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/artists.php?artist=3%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/artists.php?artist=3+AND+1%3D1 (Similarity: 0.87)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/listproducts.php?artist=1%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/listproducts.php?artist=1+AND+1%3D1 (Similarity: 0.74)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/product.php?pic=2%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/product.php?pic=2+AND+1%3D1 (Similarity: 0.89)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/hpp/params.php?p=valid+AND+1%3D1&pp=12 (Similarity: 0.93)
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/artists.php?artist=1%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/artists.php?artist=1+AND+1%3D1 (Similarity: 0.86)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/userinfo.php in form field!
+[!] VULNERABLE: Error-based found on http://testphp.vulnweb.com/listproducts.php?cat=2%27 (Matched: SQL syntax.*?MySQL)
+[!] VULNERABLE: Boolean-based found on http://testphp.vulnweb.com/listproducts.php?cat=2+AND+1%3D1 (Similarity: 0.94)
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!
+[!] VULNERABLE: POST-based SQLi found at http://testphp.vulnweb.com/search.php?test=query in form field!

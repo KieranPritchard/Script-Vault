@@ -438,14 +438,19 @@ def main():
             filename = input("Enter filename (e.g. results.txt): ").strip()
             # Opens the file to write
             with open(filename, "w") as f:
-                # Writes header
-                f.write(f"SQLi Scan Results for {url}\n" + "-"*50 + "\n")
                 # Loops over the log
                 for vuln in vulnerability_log:
-                    # Writes the vulnerability to the file
-                    f.write(f"{vuln}\n")
+                    # Uses regex to extract only the URL from the result string
+                    # This looks for the URL starting with http until a space or end of string
+                    url_match = re.search(r'https?://[^\s]+', vuln)
+                    # Checks if a match was found
+                    if url_match:
+                        # Extracts the clean URL
+                        clean_url = url_match.group().rstrip(')')
+                        # Writes the clean URL to the file
+                        f.write(f"{clean_url}\n")
             # Outputs confirmation
-            print(f"[+] Results saved to {filename}")
+            print(f"[+] Clean URLs saved to {filename}")
     else:
         # Outputs that nothing was found to save
         print("[-] No vulnerabilities found to save.")
