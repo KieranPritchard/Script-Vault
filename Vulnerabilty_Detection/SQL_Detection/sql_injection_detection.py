@@ -355,6 +355,9 @@ def crawl_website(url, domain, visited=None):
     return visited
 
 def main():
+    # Logs the starting time
+    start_time = time.perf_counter() 
+
     # Payloads for initial detection
     payloads = {
         "error": ["'", "''", "\"", "`", "')"],
@@ -386,6 +389,13 @@ def main():
         # Runs the scan
         scanner = SQLIDetection(page, payloads, errors)
         scanner.run()
+
+    # Gets end time and calculates the elasped time
+    end_time = time.perf_counter()
+    elapsed = end_time - start_time
+
+    # Outputs the time
+    print(f"[✓] Finished in {elapsed:.2f} seconds")
 
 # Starts the program
 if __name__ == "__main__":
