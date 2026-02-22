@@ -301,7 +301,58 @@ def get_errors_messages():
         # Fallback if the remote file cannot be reached
         return ["sql syntax", "mysql_fetch", "ora-00933", "sqlite3.operationalerror"]
 
+    # Returns an error list
     return error_list
+
+# Function to crawl a website
+def crawl_website(url, domain, visited=None):
+    # Checks if visited is none
+    if visited is None:
+        # Creates a new set for visited
+        visited = set()
+
+    # Makes it stay within the same domain and avoid re-visiting pages
+    if url in visited or domain not in url:
+        # Returns visited
+        return visited
+
+    # Outputs thw url which is being visited
+    print(f"Visiting: {url}")
+    # Adds the url to the set
+    visited.add(url)
+
+    try:
+        # Gets a response from the page
+        response = requests.get(url, headers=get_random_agent(), timeout=5)
+        # Only parse HTML content
+        if "text/html" not in response.headers.get("Content-Type", ""):
+            # Returns the visited page
+            return visited
+        
+        # Creates new beautiful soup object to parse the page
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Finds all 'a' tags with an 'href' attribute
+        for link in soup.find_all('a', href=True):
+            # Gets the link urls
+            link_url = link['href']
+            
+            # Resolve relative URLs (e.g., /about -> https://site.com/about)
+            full_url = urljoin(url, link_url)
+            
+            # Clean fragments (e.g., site.com/#section -> site.com/)
+            full_url = full_url.split('#')[0]
+
+            # 3. Recursive call to traverse the next page
+            crawl_website(full_url, domain, visited)
+
+    # Catches the error
+    except Exception as e:
+        # Outputs an error message
+        print(f"Could not crawl {url}: {e}")
+
+    # Returns visited
+    return visited
 
 def main():
     # Payloads for initial detection
@@ -318,17 +369,23 @@ def main():
     errors = get_errors_messages()
 
     # Allows the user to enter in a url to scan
-    url = input("Enter URL to scan (e.g., http://site.com/page.php?id=1): ").strip()
+    url = input("Enter URL: ").strip()
+    target_domain = urlparse(url).netloc
     
-    # Checks if the url starts with http
-    if not url.lower().startswith("http"):
-        # Outputs it is an invaild url
-        print("[!] Invalid URL.")
-        return
+    # Outputs the pages are being crawled
+    print("[*] Starting crawl to map the attack surface...")
+    # Stores all of the pages
+    all_pages = crawl_website(url, target_domain)
     
-    # Creates and runs the scanner
-    scanner = SQLIDetection(url, payloads, errors)
-    scanner.run()
+    # Then, scan every page discovered
+    print(f"[*] Discovery complete. Scanning {len(all_pages)} pages for SQLi...")
+    # Loops over the pages
+    for page in all_pages:
+        # Outputs the page being scanned
+        print(f"\n--- Scanning: {page} ---")
+        # Runs the scan
+        scanner = SQLIDetection(page, payloads, errors)
+        scanner.run()
 
 # Starts the program
 if __name__ == "__main__":
