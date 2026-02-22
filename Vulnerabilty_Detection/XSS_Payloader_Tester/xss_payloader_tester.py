@@ -9,6 +9,7 @@ class XSSPayloadTester:
         self.target_url = target_url # Stores the target url
         self.payloads = payloads # Stores the payloads
         self.session = requests.Session() # Creates a new user session
+        self.results = []
 
     # Method to get all of the inputs on a page
     def get_all_inputs(self,):
@@ -57,3 +58,32 @@ class XSSPayloadTester:
             print(f"Error scraping {self.target_url}: {e}")
             # Returns a empty list
             return []
+
+    # Method to log the result
+    def _log_result(self, xss_type, payload, status, param=None):
+        # Builds the result object
+        result = {"type": xss_type, "payload": payload, "status": status, "parameter": param}
+        # Adds the result to results
+        self.results.append(result)
+        # Checks if status is vulnerable
+        if status == "Vulnerable":
+            # Outputs the found vulnerability
+            print(f"[!] {xss_type} FOUND: {payload} in {param}")
+
+    # Function to test parameters 
+    def scan_reflected(self, params_to_test):
+        # Loops over the parmeters in paremeters to test
+        for param in params_to_test:
+            # Loops over the payloads
+            for payload in self.payloads:
+                try:
+                    # Gets the response from the parameters and payloads
+                    res = requests.get(self.target_url, params={param: payload}, timeout=5)
+                    # Checks for the payload
+                    if payload in res.text:
+                        # Logs the result
+                        self._log_result("Reflected", payload, "Vulnerable", param)
+                # Catches the errors
+                except requests.RequestException as e:
+                    # Outputs the error
+                    print(f"Connection error: {e}")
