@@ -7,6 +7,8 @@ import os
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 # Class to store sqli injection logic
 class SQLIDetection:
@@ -354,6 +356,19 @@ def crawl_website(url, domain, visited=None):
     # Returns visited
     return visited
 
+# A Lock prevents threads from printing over each other
+print_lock = Lock()
+
+# Function to be executed by the threads.
+def scan_page(page, payloads, errors):
+    with print_lock:
+        # Outputs the page being scanned
+        print(f"\n--- Scanning: {page} ---")
+    
+    # Runs the scan
+    scanner = SQLIDetection(page, payloads, errors)
+    scanner.run()
+
 def main():
     # Logs the starting time
     start_time = time.perf_counter() 
@@ -382,20 +397,20 @@ def main():
     
     # Then, scan every page discovered
     print(f"[*] Discovery complete. Scanning {len(all_pages)} pages for SQLi...")
-    # Loops over the pages
-    for page in all_pages:
-        # Outputs the page being scanned
-        print(f"\n--- Scanning: {page} ---")
-        # Runs the scan
-        scanner = SQLIDetection(page, payloads, errors)
-        scanner.run()
 
-    # Gets end time and calculates the elasped time
+    # --- Added ThreadPoolExecutor ---
+    # Adjust max_workers based on how many concurrent requests you want to send
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        # Loops over the pages and submits them to the thread pool
+        for page in all_pages:
+            executor.submit(scan_page, page, payloads, errors)
+
+    # Gets end time and calculates the elapsed time
     end_time = time.perf_counter()
     elapsed = end_time - start_time
 
     # Outputs the time
-    print(f"[✓] Finished in {elapsed:.2f} seconds")
+    print(f"\n[✓] Finished in {elapsed:.2f} seconds")
 
 # Starts the program
 if __name__ == "__main__":
