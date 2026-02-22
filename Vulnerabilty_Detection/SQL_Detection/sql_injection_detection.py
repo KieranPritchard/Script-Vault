@@ -264,9 +264,13 @@ class SQLIDetection:
             # Loops over entries and prints them
             for f in found: print(f)
             print(f"\n[+] Recommendation: Proceed with: sqlmap -u \"{self.target_url}\" --batch --random-agent")
+            # Returns the list of findings
+            return found
         else:
             # Prints no obivous vulnerabilites found
             print("[-] No obvious vulnerabilities detected.")
+            # Returns empty list
+            return []
 
 # Function to get random user agent from folder
 def get_random_agent():
@@ -361,13 +365,15 @@ print_lock = Lock()
 
 # Function to be executed by the threads.
 def scan_page(page, payloads, errors):
+    # Locks the print function to prevent jumbled text
     with print_lock:
         # Outputs the page being scanned
         print(f"\n--- Scanning: {page} ---")
     
     # Runs the scan
     scanner = SQLIDetection(page, payloads, errors)
-    scanner.run()
+    # Returns the list of vulnerabilities found for this page
+    return scanner.run()
 
 def main():
     # Logs the starting time
@@ -398,19 +404,51 @@ def main():
     # Then, scan every page discovered
     print(f"[*] Discovery complete. Scanning {len(all_pages)} pages for SQLi...")
 
-    # --- Added ThreadPoolExecutor ---
-    # Adjust max_workers based on how many concurrent requests you want to send
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        # Loops over the pages and submits them to the thread pool
-        for page in all_pages:
-            executor.submit(scan_page, page, payloads, errors)
+    # Stores all vulnerabilities found across all threads
+    vulnerability_log = []
 
-    # Gets end time and calculates the elapsed time
+    # Creates the thread pool executor
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        # Maps the scan_page function to the all_pages list and gets futures
+        futures = [executor.submit(scan_page, page, payloads, errors) for page in all_pages]
+        
+        # Collects results from the futures as they finish
+        for future in futures:
+            # Gets the list of findings from the thread
+            result = future.result()
+            # Checks if findings exist
+            if result:
+                # Extends the log with the findings
+                vulnerability_log.extend(result)
+
+    # Gets end time and calculates the elasped time
     end_time = time.perf_counter()
     elapsed = end_time - start_time
 
     # Outputs the time
     print(f"\n[✓] Finished in {elapsed:.2f} seconds")
+
+    # Checks if any vulnerabilities were found
+    if vulnerability_log:
+        # Prompts the user to save to a file
+        choice = input(f"\n[!] Found {len(vulnerability_log)} vulnerabilities. Save to file? (y/n): ").strip().lower()
+        # Checks if user wants to save
+        if choice == 'y':
+            # Asks for the filename
+            filename = input("Enter filename (e.g. results.txt): ").strip()
+            # Opens the file to write
+            with open(filename, "w") as f:
+                # Writes header
+                f.write(f"SQLi Scan Results for {url}\n" + "-"*50 + "\n")
+                # Loops over the log
+                for vuln in vulnerability_log:
+                    # Writes the vulnerability to the file
+                    f.write(f"{vuln}\n")
+            # Outputs confirmation
+            print(f"[+] Results saved to {filename}")
+    else:
+        # Outputs that nothing was found to save
+        print("[-] No vulnerabilities found to save.")
 
 # Starts the program
 if __name__ == "__main__":
