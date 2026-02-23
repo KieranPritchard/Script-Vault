@@ -250,12 +250,15 @@ def main():
     if vulnerability_log:
         # Prompts to save
         choice = input(f"\n[!] Found {len(vulnerability_log)} vulnerabilities. Save results? (y/n): ").strip().lower()
+        # Checks if the choice is yes
         if choice == 'y':
             # Opens file to write
             with open("xss_scan_results.txt", "w") as f:
+                # Loops over the vulnerabity
                 for vuln in vulnerability_log:
                     # Writes vulnerability details to file
                     f.write(f"Type: {vuln['type']} | Parameter: {vuln['parameter']} | Payload: {vuln['payload']}\n")
+            # Outputs the file was say
             print("[+] Results saved to xss_scan_results.txt")
     else:
         # Outputs no vulnerabilities found
