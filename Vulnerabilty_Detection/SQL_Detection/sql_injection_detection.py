@@ -434,10 +434,8 @@ def main():
         choice = input(f"\n[!] Found {len(vulnerability_log)} vulnerabilities. Save to file? (y/n): ").strip().lower()
         # Checks if user wants to save
         if choice == 'y':
-            # Asks for the filename
-            filename = input("Enter filename (e.g. results.txt): ").strip()
             # Opens the file to write
-            with open(filename, "w") as f:
+            with open("sqli_detection_results.txt", "w") as f:
                 # Loops over the log
                 for vuln in vulnerability_log:
                     # Uses regex to extract only the URL from the result string
@@ -450,7 +448,7 @@ def main():
                         # Writes the clean URL to the file
                         f.write(f"{clean_url}\n")
             # Outputs confirmation
-            print(f"[+] Clean URLs saved to {filename}")
+            print(f"[+] Clean URLs saved to sqli_detection_results.txt")
     else:
         # Outputs that nothing was found to save
         print("[-] No vulnerabilities found to save.")

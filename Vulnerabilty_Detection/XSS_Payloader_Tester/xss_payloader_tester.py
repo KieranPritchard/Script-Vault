@@ -173,6 +173,16 @@ class XSSPayloadTester:
         # Returns the list of findings
         return self.results
 
+# Function to load the payloads
+def load_payloads():
+    # Opens the file
+    with open("../../Resources/xss_payloads.txt", "r") as f:
+        # Reads in the payloads
+        payloads = f.readlines()
+
+    # Returns the payloads
+    return payloads
+
 # Function to get random user agent from folder
 def get_random_agent():
     # Fallback agents if file is missing
@@ -244,15 +254,6 @@ def main():
     # Logs the starting time
     start_time = time.perf_counter() 
 
-    # List of XSS payloads to test
-    payloads = [
-        "<script>alert('XSS')</script>",
-        "\" onmouseover=\"alert(1)",
-        "'> <script>alert(1)</script>",
-        "<img src=x onerror=alert(1)>",
-        "<svg onload=alert(1)>"
-    ]
-
     # Allows the user to enter in a url to scan
     url = input("Enter Target URL: ").strip()
     # Extracts the domain name
@@ -270,9 +271,9 @@ def main():
     vulnerability_log = []
 
     # Creates the thread pool executor
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         # Maps the scan_page function to the all_pages list
-        futures = [executor.submit(scan_page, page, payloads) for page in all_pages]
+        futures = [executor.submit(scan_page, page, load_payloads()) for page in all_pages]
         
         # Collects results as threads finish
         for future in futures:
