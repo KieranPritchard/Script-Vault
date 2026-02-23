@@ -1,6 +1,9 @@
 import requests
 from urllib.parse import urlparse, parse_qs
 from bs4 import BeautifulSoup
+from urllib import urljoin
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 # Class to store payload tester logic
 class XSSPayloadTester:
@@ -87,3 +90,44 @@ class XSSPayloadTester:
                 except requests.RequestException as e:
                     # Outputs the error
                     print(f"Connection error: {e}")
+
+    # Method to scan the stored xss
+    def scan_stored(self, post_path, view_path, form_data_key):
+        post_url = urljoin(self.target_url, post_path) # Stores the url to post to
+        view_url = urljoin(self.target_url, view_path) # Stores the view url
+        
+        # Loops over the payload in payloads
+        for payload in self.payloads:
+            # Posts the data to the url
+            requests.post(post_url, data={form_data_key: payload})
+            # Gets the response
+            res = requests.get(view_url)
+            # Checks if the payload in the response
+            if payload in res.text:
+                # Logsts the result
+                self._log_result("Stored", payload, "Vulnerable", form_data_key)
+
+    # Function to scan the dom
+    def scan_dom(self, fragment_trigger="#name="):
+        options = Options() # Stores the options
+        options.add_argument("--headless") # Runs without opening a window
+        driver = webdriver.Chrome(options=options) # Creates the web driver
+        
+        # Loops over the payloads
+        for payload in self.payloads:
+            # Creates the test url
+            test_url = f"{self.target_url}{fragment_trigger}{payload}"
+            # Gets the test url with the dirver
+            driver.get(test_url)
+            try:
+                # Stores the alert
+                alert = driver.switch_to.alert
+                # Logs the result
+                self._log_result("DOM", payload, "Vulnerable", "URL Fragment")
+                # Accepts the alert
+                alert.accept()
+            except:
+                # Continues to next iteration
+                continue
+        # Driver quit
+        driver.quit()
