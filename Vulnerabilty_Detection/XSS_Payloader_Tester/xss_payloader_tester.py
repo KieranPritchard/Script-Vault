@@ -4,7 +4,7 @@ import random
 import re
 import os
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import urljoin, urlparse, parse_qs, quote
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from concurrent.futures import ThreadPoolExecutor
@@ -40,14 +40,14 @@ class XSSPayloadTester:
             # Empty list to store the inputs
             inputs = []
             
-            # Extract parameters from the URL itself
+            # Extract parameters from the URL itself (Crucial for testphp.vulnweb.com)
             parsed_url = urlparse(self.target_url)
             # Extracts the url parmeters
             url_params = parse_qs(parsed_url.query)
             # Loops over the parameters
             for param in url_params:
                 # Adds the parameter to the list
-                inputs.append({"type": "url", "name": param, "method": "GET", "action": self.target_url})
+                inputs.append({"type": "url", "name": param, "method": "GET", "action": self.target_url.split('?')[0]})
 
             # Extract parameters from HTML Forms
             for form in soup.find_all("form"):
@@ -57,7 +57,7 @@ class XSSPayloadTester:
                 method = form.get("method", "get").lower() # Gets the methods from the form
                 
                 # Loops over the input tags
-                for input_tag in form.find_all(["input", "textarea"]):
+                for input_tag in form.find_all(["input", "textarea", "select"]):
                     # Gets the name from the input tag
                     name = input_tag.get("name")
                     # Checks if there is a name
@@ -75,6 +75,68 @@ class XSSPayloadTester:
         except Exception as e:
             # Returns a empty list
             return []
+
+    # Function to test parameters 
+    def scan_reflected(self, params_to_test):
+        # Loops over the parmeters in paremeters to test
+        for item in params_to_test:
+            # Loops over the payloads
+            for payload in self.payloads:
+                try:
+                    # Gets the response from the parameters and payloads
+                    res = self.session.get(item['action'], params={item['name']: payload}, headers=get_random_agent(), timeout=5)
+                    # Checks for the payload or URL encoded version
+                    if payload in res.text or quote(payload) in res.text:
+                        # Logs the result
+                        self._log_result("Reflected", payload, "Vulnerable", item['name'])
+                # Catches the errors
+                except requests.RequestException as e:
+                    # Outputs the error
+                    with print_lock:
+                        print(f"Connection error: {e}")
+
+    # Method to scan the stored xss
+    def scan_stored(self, post_path, view_path, form_data_key):
+        post_url = urljoin(self.target_url, post_path) # Stores the url to post to
+        view_url = urljoin(self.target_url, view_path) # Stores the view url
+        
+        # Loops over the payload in payloads
+        for payload in self.payloads:
+            try:
+                # Posts the data to the url
+                self.session.post(post_url, data={form_data_key: payload}, headers=get_random_agent())
+                # Gets the response from the viewing page
+                res = self.session.get(view_url, headers=get_random_agent())
+                # Checks if the payload in the response
+                if payload in res.text:
+                    # Logsts the result
+                    self._log_result("Stored", payload, "Vulnerable", form_data_key)
+            except: continue
+
+    # Function to scan the dom
+    def scan_dom(self, fragment_trigger="#query="):
+        options = Options() # Stores the options
+        options.add_argument("--headless") # Runs without opening a window
+        driver = webdriver.Chrome(options=options) # Creates the web driver
+        
+        # Loops over the payloads
+        for payload in self.payloads:
+            # Creates the test url using the fragment
+            test_url = f"{self.target_url}{fragment_trigger}{payload}"
+            # Gets the test url with the dirver
+            driver.get(test_url)
+            try:
+                # Stores the alert
+                alert = driver.switch_to.alert
+                # Logs the result
+                self._log_result("DOM", payload, "Vulnerable", "URL Fragment")
+                # Accepts the alert
+                alert.accept()
+            except:
+                # Continues to next iteration if no alert found
+                continue
+        # Driver quit
+        driver.quit()
 
     # Method to log the result
     def _log_result(self, xss_type, payload, status, param=None):
@@ -94,38 +156,19 @@ class XSSPayloadTester:
         # Gets all potential injection points
         target_inputs = self.get_all_inputs()
         
-        # Loops through identified inputs
+        # Filters inputs for reflected testing (GET and URL params)
+        reflected_targets = [i for i in target_inputs if i['method'] == 'get']
+        # Runs the reflected scan
+        self.scan_reflected(reflected_targets)
+        
+        # Runs the DOM scan (optional fragment trigger)
+        self.scan_dom()
+        
+        # Checks for POST forms to test stored XSS
         for item in target_inputs:
-            # Applies jitter to stay under the radar
-            self.jitter()
-            
-            # Checks if the input is handled via GET
-            if item['method'] == 'get':
-                # Loops over XSS payloads
-                for payload in self.payloads:
-                    try:
-                        # Sends the request with the payload
-                        res = self.session.get(item['action'], params={item['name']: payload}, headers=get_random_agent(), timeout=5)
-                        # Checks if the payload is reflected in the source code
-                        if payload in res.text:
-                            # Logs the vulnerability
-                            self._log_result("Reflected", payload, "Vulnerable", item['name'])
-                    except: continue
-            
-            # Checks if the input is handled via POST
-            elif item['method'] == 'post':
-                # Loops over XSS payloads
-                for payload in self.payloads:
-                    try:
-                        # Posts the payload to the form action
-                        self.session.post(item['action'], data={item['name']: payload}, headers=get_random_agent(), timeout=5)
-                        # Re-visits the page to see if the payload was stored
-                        check_res = self.session.get(self.target_url, headers=get_random_agent())
-                        # Checks for reflection
-                        if payload in check_res.text:
-                            # Logs the stored vulnerability
-                            self._log_result("Stored", payload, "Vulnerable", item['name'])
-                    except: continue
+            if item['method'] == 'post':
+                # Runs stored scan assuming post and view are on same url
+                self.scan_stored(item['action'], self.target_url, item['name'])
 
         # Returns the list of findings
         return self.results
@@ -227,7 +270,7 @@ def main():
     vulnerability_log = []
 
     # Creates the thread pool executor
-    with ThreadPoolExecutor(max_workers=7) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         # Maps the scan_page function to the all_pages list
         futures = [executor.submit(scan_page, page, payloads) for page in all_pages]
         
