@@ -21,7 +21,7 @@ The goal was to create an automated security tool that maps a website's entire d
 ### Technologies and Tools Used
 
 * **Language:** Python
-* * **Frameworks/Librarys:** requests, BeautifulSoup4 (Parsing & Crawling), difflib (Fuzzy Logic), urllib.parse.
+* **Frameworks/Librarys:** requests, BeautifulSoup4 (Parsing & Crawling), difflib (Fuzzy Logic), urllib.parse.
 
 ### Challenges Faced
 
@@ -44,26 +44,27 @@ The tool is now a full-cycle security auditor. It begins with discovery, moves t
 
 * Install dependencies:
 
-Bash
+```Bash
 pip install requests beautifulsoup4
-
+```
 2. Run the Suite
 
-Bash
+```Bash
 python3 main_scanner.py
+```
 3. Script Behavior
 
-Discovery Phase: Enter a URL. The script will recursively visit every linked page it can find on that domain.
+* Discovery Phase: Enter a URL. The script will recursively visit every linked page it can find on that domain.
 
-Analysis Phase: Once discovery is complete, the script iterates through every found URL.
+* Analysis Phase: Once discovery is complete, the script iterates through every found URL.
 
-Vulnerability Check: For each URL, it establishes a baseline and runs the full battery of SQLi tests.
+* Vulnerability Check: For each URL, it establishes a baseline and runs the full battery of SQLi tests.
 
-Final Reporting: The script outputs its findings in real-time, providing an sqlmap recommendation if vulnerabilities are confirmed.
+* Final Reporting: The script outputs its findings in real-time, providing an sqlmap recommendation if vulnerabilities are confirmed.
 
 4. Review Results
 
-Plaintext
+```Plaintext
 [*] Discovery complete. Scanning 12 pages for SQLi...
 
 --- Scanning: https://example.com/products.php?id=5 ---
@@ -71,3 +72,4 @@ Plaintext
 [!] VULNERABLE: Error-based found on https://example.com/products.php?id=5' (Matched: SQL syntax)
 
 [✓] Finished in 42.15 seconds
+```
