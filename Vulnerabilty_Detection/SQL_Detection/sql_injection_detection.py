@@ -33,21 +33,25 @@ class SQLIDetection:
         samples = []
         # Loops three times to get samples
         for i in range(3):
-            res = self.session.get(self.target_url, headers=get_random_agent())
-            samples.append(res.text)
+            try:
+                res = self.session.get(self.target_url, headers=get_random_agent(), timeout=10)
+                samples.append(res.text)
+            except:
+                samples.append("")
             if i < 2: time.sleep(1)
         
         # Calculates the similarity between the samples to find noise
-        ratio1 = self.get_similarity(samples[0], samples[1])
-        ratio2 = self.get_similarity(samples[1], samples[2])
-        
-        # Calculates the noise threshold
-        avg_similarity = (ratio1 + ratio2) / 2
-        self.noise_threshold = 1.0 - avg_similarity
+        if len(samples) >= 2:
+            ratio1 = self.get_similarity(samples[0], samples[1])
+            ratio2 = self.get_similarity(samples[1], (samples[2] if len(samples) > 2 else samples[1]))
+            
+            # Calculates the noise threshold
+            avg_similarity = (ratio1 + ratio2) / 2
+            self.noise_threshold = 1.0 - avg_similarity
         
         # Outputs the noise level found
         print(f"[+] Natural page noise detected: {self.noise_threshold:.4f}")
-        return samples[0]
+        return samples[0] if samples else ""
 
     # Injects payloads into specific URL parameters
     def get_injected_urls(self, payload):
@@ -82,12 +86,14 @@ class SQLIDetection:
         }
         # Outputs checking for WAF
         print("[*] Checking for WAF/IPS...")
-        res = self.session.get(self.target_url, headers=get_random_agent())
-        # Loops through signatures to find a match
-        for name, signature in waf_signatures.items():
-            if signature in str(res.headers).lower() or signature in res.text.lower():
-                print(f"[!] Warning: {name} WAF detected. Proceed with caution.")
-                return True
+        try:
+            res = self.session.get(self.target_url, headers=get_random_agent(), timeout=10)
+            # Loops through signatures to find a match
+            for name, signature in waf_signatures.items():
+                if signature in str(res.headers).lower() or signature in res.text.lower():
+                    print(f"[!] Warning: {name} WAF detected. Proceed with caution.")
+                    return True
+        except: pass
         return False
 
     # Compares the similarity
@@ -168,6 +174,7 @@ class SQLIDetection:
                         return f"[!] VULNERABLE: Time-based found on {url}"
                 except requests.exceptions.Timeout:
                     return f"[!] VULNERABLE: Time-based (Timeout triggered) on {url}"
+                except: continue
         return None
 
     # Checks for SQLi in the HTTP headers
@@ -295,7 +302,7 @@ def get_errors_messages():
     error_file = "https://raw.githubusercontent.com/sqlmapproject/sqlmap/master/data/xml/errors.xml"
     try:
         # Gets the errors from the error file
-        errors = requests.get(error_file)
+        errors = requests.get(error_file, timeout=10)
         # Creates the element tree object
         root = ET.fromstring(errors.content)
         # Loops over the tree root for dbms items
@@ -436,19 +443,26 @@ def main():
         if choice == 'y':
             # Opens the file to write
             with open("sqli_detection_results.txt", "w") as f:
+                # Use a set to store unique clean URLs
+                unique_urls = set()
                 # Loops over the log
                 for vuln in vulnerability_log:
                     # Uses regex to extract only the URL from the result string
-                    # This looks for the URL starting with http until a space or end of string
                     url_match = re.search(r'https?://[^\s]+', vuln)
                     # Checks if a match was found
                     if url_match:
-                        # Extracts the clean URL
-                        clean_url = url_match.group().rstrip(')')
-                        # Writes the clean URL to the file
-                        f.write(f"{clean_url}\n")
+                        # Extracts the URL and removes trailing characters from the log string
+                        dirty_url = url_match.group().rstrip(')')
+                        # Parse the URL and rebuild it without the query parameters (cleaning payloads)
+                        parsed = urlparse(dirty_url)
+                        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                        unique_urls.add(clean_url)
+                
+                # Write unique clean URLs to the file
+                for url in sorted(unique_urls):
+                    f.write(f"{url}\n")
             # Outputs confirmation
-            print(f"[+] Clean URLs saved to sqli_detection_results.txt")
+            print(f"[+] {len(unique_urls)} clean URLs saved to sqli_detection_results.txt")
     else:
         # Outputs that nothing was found to save
         print("[-] No vulnerabilities found to save.")
