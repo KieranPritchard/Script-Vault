@@ -443,7 +443,7 @@ def main():
         if choice == 'y':
             # Opens the file to write
             with open("sqli_detection_results.txt", "w") as f:
-                # Use a set to store unique clean URLs
+                # Use a set to store unique clean URLs (with parameters)
                 unique_urls = set()
                 # Loops over the log
                 for vuln in vulnerability_log:
@@ -451,18 +451,36 @@ def main():
                     url_match = re.search(r'https?://[^\s]+', vuln)
                     # Checks if a match was found
                     if url_match:
-                        # Extracts the URL and removes trailing characters from the log string
+                        # Extracts the clean URL
                         dirty_url = url_match.group().rstrip(')')
-                        # Parse the URL and rebuild it without the query parameters (cleaning payloads)
+                        
+                        # PARSE and RECONSTRUCT the URL to remove the payload only
+                        # This ensures sqlmap gets the parameter names (like ?id=) but not the bad characters
                         parsed = urlparse(dirty_url)
-                        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-                        unique_urls.add(clean_url)
-                
+                        params = parse_qs(parsed.query)
+                        
+                        clean_params = {}
+                        for key, values in params.items():
+                            val = values[0]
+                            # Clean each parameter of our known payloads
+                            for p_type, p_list in payloads.items():
+                                for p in p_list:
+                                    if isinstance(p, dict):
+                                        val = val.replace(p["true"], "").replace(p["false"], "")
+                                    else:
+                                        val = val.replace(p, "")
+                            clean_params[key] = val
+                        
+                        # Rebuild the query string with original parameter names
+                        new_query = urlencode(clean_params, doseq=True)
+                        final_url = urlunparse(parsed._replace(query=new_query))
+                        unique_urls.add(final_url)
+
                 # Write unique clean URLs to the file
                 for url in sorted(unique_urls):
                     f.write(f"{url}\n")
             # Outputs confirmation
-            print(f"[+] {len(unique_urls)} clean URLs saved to sqli_detection_results.txt")
+            print(f"[+] {len(unique_urls)} URLs (parameters preserved) saved to sqli_detection_results.txt")
     else:
         # Outputs that nothing was found to save
         print("[-] No vulnerabilities found to save.")
