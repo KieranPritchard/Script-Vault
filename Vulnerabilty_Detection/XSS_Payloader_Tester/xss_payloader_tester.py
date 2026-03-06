@@ -73,19 +73,15 @@ class XSSPayloadTester:
             print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
         
         dalfox_path = "/snap/bin/dalfox"
-        
-        # We add --format json so we can read the results programmatically
         command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --format json"
         
         try:
-            # capture_output=True allows us to read what Dalfox found
             process = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
             
-            # If Dalfox found something, it will be in the stdout
             if process.stdout:
+                import json
                 for line in process.stdout.splitlines():
                     try:
-                        import json
                         vuln_data = json.loads(line)
                         # Log it into our main results list
                         self._log_result(
@@ -94,8 +90,11 @@ class XSSPayloadTester:
                             status="Vulnerable",
                             param=vuln_data.get("param", "N/A")
                         )
-                    except:
-                        continue # Skip non-json lines
+                        # Output the data to the terminal as well
+                        with print_lock:
+                            print(f"[!] Found XSS: {vuln_data.get('type')} on {vuln_data.get('param')} | PoC: {vuln_data.get('poc')}")
+                    except json.JSONDecodeError:
+                        continue 
         except Exception as e:
             with print_lock:
                 print(f"[-] Dalfox execution error: {e}")
