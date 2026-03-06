@@ -78,7 +78,7 @@ class XSSPayloadTester:
         
         # We build the command as a single string for shell=True
         # This is more reliable for snap packages in Kali
-        command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --skip-mining-all --fuzz"
+        command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --skip-mining-all"
         
         try:
             # Using shell=True and a string command often fixes the 'Help Menu' loop
