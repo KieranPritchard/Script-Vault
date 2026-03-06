@@ -68,20 +68,18 @@ class XSSPayloadTester:
             # Outputs nuclei not found
             print("[-] Nuclei not found.")
 
-    # Method to run dalfox discovery
     def launch_dalfox(self, target_url):
         with print_lock:
             print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
         
-        # Absolute path to your snap binary
         dalfox_path = "/snap/bin/dalfox"
         
-        # We build the command as a single string for shell=True
-        # This is more reliable for snap packages in Kali
-        command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --skip-mining-all"
+        # Removed --fuzz (not a valid flag) 
+        # Added --mining-dict to force it to look for parameters on static pages
+        command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --mining-dict"
         
         try:
-            # Using shell=True and a string command often fixes the 'Help Menu' loop
+            # shell=True ensures the snap environment handles the arguments correctly
             subprocess.run(command, shell=True, check=False)
         except Exception as e:
             with print_lock:
