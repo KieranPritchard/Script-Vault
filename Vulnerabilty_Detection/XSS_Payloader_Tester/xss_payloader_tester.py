@@ -82,12 +82,12 @@ class XSSPayloadTester:
             target_url,         # The target
             "--silence", 
             "--skip-mining-all", 
-            "--fuzz"            # Force fuzzing
+            "--fuzz",            # Force fuzzing
         ]
         
         try:
             # We add shell=False to ensure the list is parsed correctly as arguments
-            subprocess.run(cmd, check=False)
+            subprocess.run(cmd, shell=True, check=False)
         except Exception as e:
             with print_lock:
                 print(f"[-] Dalfox execution error: {e}")
