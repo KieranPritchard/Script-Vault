@@ -76,7 +76,7 @@ class XSSPayloadTester:
         
         # Runs dalfox with headless browser verification
         try:
-            subprocess.run(["dalfox", "url", target_url, "--silence", "--skip-mining-all"], check=False, shell=True)
+            subprocess.run(["dalfox", "url", target_url, "--silence", "--skip-mining-all", "--fuzz"], check=False, shell=True)
         except FileNotFoundError:
             # Outputs error message
             print("[-] Dalfox not found.")
