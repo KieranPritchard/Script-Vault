@@ -27,54 +27,34 @@ class XSSPayloadTester:
         # Sleeps for a random time
         time.sleep(random.uniform(0.5, 2.0))
 
-    # Method to get all of the inputs on a page
-    def get_all_inputs(self):
-        # Trys to get the inputs
+    # Function to crawl the website
+    def crawl(self, url, visited=None):
+        # Checks if visited is none and sets it to a set
+        if visited is None: visited = set()
+        # Checks if the url is in the domain of the target
+        if url in visited or self.target_domain not in urlparse(url).netloc:
+            return visited
+        
+        # Logs the output for notifying 
+        with print_lock:
+            print(f"[*] Crawling: {url}")
+        
+        # Adds url to visited
+        visited.add(url)
+
         try:
-            # gets the response of the target url
-            res = self.session.get(self.target_url, headers=get_random_agent(), timeout=10)
-
-            # Creates beautiful soup object to parse the html
+            # sends a get request to the url
+            res = self.session.get(url, timeout=5)
+            # Creates soup object
             soup = BeautifulSoup(res.text, 'html.parser')
-            
-            # Empty list to store the inputs
-            inputs = []
-            
-            # Extract parameters from the URL itself (Crucial for testphp.vulnweb.com)
-            parsed_url = urlparse(self.target_url)
-            # Extracts the url parmeters
-            url_params = parse_qs(parsed_url.query)
-            # Loops over the parameters
-            for param in url_params:
-                # Adds the parameter to the list
-                inputs.append({"type": "url", "name": param, "method": "GET", "action": self.target_url.split('?')[0]})
-
-            # Extract parameters from HTML Forms
-            for form in soup.find_all("form"):
-                action = form.get("action") # Gets the action from the form
-                # Resolve relative URLs to absolute URLs
-                post_url = urljoin(self.target_url, action)
-                method = form.get("method", "get").lower() # Gets the methods from the form
-                
-                # Loops over the input tags
-                for input_tag in form.find_all(["input", "textarea", "select"]):
-                    # Gets the name from the input tag
-                    name = input_tag.get("name")
-                    # Checks if there is a name
-                    if name:
-                        # Appends the gathered information to list
-                        inputs.append({
-                            "type": "form",
-                            "name": name,
-                            "method": method,
-                            "action": post_url
-                        })
-            # Returns the inputs
-            return inputs
-        # Catches the errors
-        except Exception as e:
-            # Returns a empty list
-            return []
+            # Loops over the link tags
+            for link in soup.find_all('a', href=True):
+                # Greates a full url
+                full_url = urljoin(url, link['href']).split('#')[0]
+                # Recursivly call the crawk function
+                self.crawl(full_url, visited)
+        except: pass
+        return visited
 
     # Function to test parameters 
     def scan_reflected(self, params_to_test):
