@@ -70,19 +70,27 @@ class XSSPayloadTester:
 
     # Method to run dalfox discovery
     def launch_dalfox(self, target_url):
-        # Outputs that Dalfox is starting
         with print_lock:
             print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
         
-
         dalfox_path = "/snap/bin/dalfox"
-
-        # Runs dalfox with headless browser verification
+        
+        # The correct order for Dalfox is: dalfox url [target] [flags]
+        cmd = [
+            dalfox_path, 
+            "url",              # The command
+            target_url,         # The target
+            "--silence", 
+            "--skip-mining-all", 
+            "--fuzz"            # Force fuzzing
+        ]
+        
         try:
-            subprocess.run([dalfox_path, "url", target_url, "--silence", "--skip-mining-all", "--fuzz"], check=False, shell=True)
-        except FileNotFoundError:
-            # Outputs error message
-            print("[-] Dalfox not found.")
+            # We add shell=False to ensure the list is parsed correctly as arguments
+            subprocess.run(cmd, check=False)
+        except Exception as e:
+            with print_lock:
+                print(f"[-] Dalfox execution error: {e}")
 
     # Method to scan the stored xss logic
     def scan_stored_custom(self, page_url):
