@@ -73,28 +73,45 @@ class XSSPayloadTester:
             print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
         
         dalfox_path = "/snap/bin/dalfox"
+        # Added --output-all to ensure findings are pushed to the stream
         command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --format json"
         
         try:
-            process = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
+            # Use stderr=subprocess.STDOUT to merge error messages into the output stream
+            # This prevents findings sent to stderr from being lost
+            import subprocess
+            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             
-            if process.stdout:
-                import json
-                for line in process.stdout.splitlines():
+            # Read line by line in real-time
+            for line in iter(process.stdout.readline, ''):
+                clean_line = line.strip()
+                if not clean_line:
+                    continue
+                    
+                # Log raw output for visibility (helps you see what's happening)
+                with print_lock:
+                    print(f"[Dalfox] {clean_line}")
+
+                # Try to parse as JSON finding
+                if clean_line.startswith('{') and clean_line.endswith('}'):
                     try:
-                        vuln_data = json.loads(line)
-                        # Log it into our main results list
+                        import json
+                        vuln_data = json.loads(clean_line)
+                        
+                        # Log internally
                         self._log_result(
                             xss_type=vuln_data.get("type", "Reflected/DOM"),
                             payload=vuln_data.get("poc", "N/A"),
                             status="Vulnerable",
                             param=vuln_data.get("param", "N/A")
                         )
-                        # Output the data to the terminal as well
+                        
                         with print_lock:
-                            print(f"[!] Found XSS: {vuln_data.get('type')} on {vuln_data.get('param')} | PoC: {vuln_data.get('poc')}")
-                    except json.JSONDecodeError:
-                        continue 
+                            print(f"!!! SUCCESS: Found {vuln_data.get('type')} on {vuln_data.get('param')} !!!")
+                    except:
+                        continue
+            
+            process.wait()
         except Exception as e:
             with print_lock:
                 print(f"[-] Dalfox execution error: {e}")
