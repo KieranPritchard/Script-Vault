@@ -74,13 +74,28 @@ class XSSPayloadTester:
         
         dalfox_path = "/snap/bin/dalfox"
         
-        # Removed --fuzz (not a valid flag) 
-        # Added --mining-dict to force it to look for parameters on static pages
-        command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --mining-dict"
+        # We add --format json so we can read the results programmatically
+        command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --format json"
         
         try:
-            # shell=True ensures the snap environment handles the arguments correctly
-            subprocess.run(command, shell=True, check=False)
+            # capture_output=True allows us to read what Dalfox found
+            process = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
+            
+            # If Dalfox found something, it will be in the stdout
+            if process.stdout:
+                for line in process.stdout.splitlines():
+                    try:
+                        import json
+                        vuln_data = json.loads(line)
+                        # Log it into our main results list
+                        self._log_result(
+                            xss_type=vuln_data.get("type", "Reflected/DOM"),
+                            payload=vuln_data.get("poc", "N/A"),
+                            status="Vulnerable",
+                            param=vuln_data.get("param", "N/A")
+                        )
+                    except:
+                        continue # Skip non-json lines
         except Exception as e:
             with print_lock:
                 print(f"[-] Dalfox execution error: {e}")
