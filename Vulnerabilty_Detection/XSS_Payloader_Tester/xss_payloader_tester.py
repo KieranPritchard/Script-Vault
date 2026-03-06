@@ -5,8 +5,6 @@ import subprocess
 import os
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs, quote
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
