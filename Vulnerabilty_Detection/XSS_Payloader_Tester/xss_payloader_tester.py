@@ -3,6 +3,7 @@ import time
 import random
 import subprocess
 import os
+import json
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs, quote
 from concurrent.futures import ThreadPoolExecutor
@@ -69,7 +70,6 @@ class XSSPayloadTester:
             print("[-] Nuclei not found.")
 
     def launch_dalfox(self, target_url):
-        # Local list to return only findings from THIS specific scan
         local_findings = []
         with print_lock:
             print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
@@ -77,49 +77,52 @@ class XSSPayloadTester:
         dalfox_path = "/snap/bin/dalfox"
         command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --format json"
         
+        # Mapping shorthand to readable types
+        type_map = {
+            "V": "Verified (DOM-based)",
+            "R": "Reflected",
+            "S": "Stored",
+            "G": "Grep (Potential)"
+        }
+        
         try:
-            import subprocess, json
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             
             for line in iter(process.stdout.readline, ''):
                 line = line.strip()
-                # Dalfox JSON output often starts with [ and ends with ] or contains ,
                 if not line or line in ["[", "]"]: continue
                 
-                # Robust cleaning for JSON array elements
+                # Clean trailing commas and brackets that Dalfox adds in array mode
                 clean_line = line.rstrip(',').rstrip(']')
                 
                 try:
                     vuln_data = json.loads(clean_line)
-                    finding = {
-                        "type": vuln_data.get("type", "Reflected/DOM"),
-                        "payload": vuln_data.get("poc", "N/A"),
-                        "status": "Vulnerable",
-                        "parameter": vuln_data.get("param", "N/A")
-                    }
                     
-                    # Log globally and locally
-                    self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
-                    local_findings.append(finding)
+                    # Extract the payload and determine type
+                    raw_type = vuln_data.get("type", "R")
+                    readable_type = type_map.get(raw_type, f"XSS ({raw_type})")
+                    payload = vuln_data.get("poc") or vuln_data.get("data") or "N/A"
                     
-                    with print_lock:
-                        print(f"[!] SUCCESS: Found {finding['type']} on {finding['parameter']}")
+                    if payload != "N/A":
+                        finding = {
+                            "type": readable_type,
+                            "payload": payload,
+                            "status": "Vulnerable",
+                            "parameter": vuln_data.get("param", "unknown")
+                        }
+                        
+                        # Log it globally and locally
+                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
+                        local_findings.append(finding)
                 except json.JSONDecodeError:
                     continue 
             
             process.wait()
-            return local_findings # Return only what we found just now
-                    
+            return local_findings
         except Exception as e:
             with print_lock:
                 print(f"[-] Dalfox execution error: {e}")
             return []
-
-    def scan_page_workflow(self, page):
-        # Capture findings from this specific page only
-        page_results = self.launch_dalfox(page)
-        self.scan_stored_custom(page) 
-        return page_results # main() will now get a clean list
 
     # Method to scan the stored xss logic
     def scan_stored_custom(self, page_url):
@@ -145,23 +148,26 @@ class XSSPayloadTester:
 
     # Method to log the result
     def _log_result(self, xss_type, payload, status, param=None):
-        # Builds the result object
-        result = {"type": xss_type, "payload": payload, "status": status, "parameter": param}
-        # Adds the result to results
-        self.results.append(result)
-        # Checks if status is vulnerable
-        if status == "Vulnerable":
-            # Uses the lock to prevent messy console output
-            with print_lock:
-                # Outputs the found vulnerability
-                print(f"[!] {xss_type} XSS FOUND: {payload} in parameter: {param}")
+        # Only log confirmed vulnerabilities with valid payloads
+        if status == "Vulnerable" and payload and payload != "N/A":
+            # Check for duplicates to prevent the massive log spam
+            finding_sig = f"{xss_type}-{param}-{payload}"
+            if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == finding_sig for r in self.results):
+                # Builds the result object
+                result = {"type": xss_type, "payload": payload, "status": status, "parameter": param}
+                # Adds the result to results
+                self.results.append(result)
+                # Uses the lock to prevent messy console output
+                with print_lock:
+                    # Outputs the found vulnerability
+                    print(f"[!] {xss_type} XSS FOUND: {payload} in parameter: {param}")
 
     # Function to coordinate scanning for a specific page
     def scan_page_workflow(self, page):
         # Starts the sniper tools
-        self.launch_dalfox(page)
+        findings = self.launch_dalfox(page)
         self.scan_stored_custom(page)
-        return self.results
+        return findings
 
 # Function to load the payloads
 def load_payloads():
