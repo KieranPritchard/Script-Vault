@@ -63,11 +63,44 @@ class XSSPayloadTester:
             print(f"[*] Phase 1: Launching Nuclei templates against {target}")
         
         try:
-            # Runs nuclei focusing on xss tags
-            subprocess.run(["nuclei", "-u", target, "-tags", "xss", "-silent"], check=False)
+            # -jsonl allows us to parse each finding as a dictionary
+            # -severity medium,high,critical filters out the 'info' noise
+            command = ["nuclei", "-u", target, "-tags", "xss", "-severity", "medium,high,critical", "-silent", "-jsonl"]
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            
+            for line in iter(process.stdout.readline, ''):
+                line = line.strip()
+                if not line: continue
+                
+                try:
+                    vuln_data = json.loads(line)
+                    info = vuln_data.get("info", {})
+                    severity = info.get("severity", "unknown").upper()
+                    template_id = vuln_data.get("template-id", "N/A")
+                    
+                    # Determine if it's Reflected or DOM based on template tags/id
+                    xss_type = "Reflected"
+                    if "dom" in template_id.lower() or "dom" in str(info.get("tags", "")).lower():
+                        xss_type = "DOM-based"
+                    
+                    # Log to the internal result list
+                    self._log_result(
+                        xss_type=f"Nuclei {severity} ({xss_type})",
+                        payload=vuln_data.get("matched-at", "N/A"),
+                        status="Vulnerable",
+                        param=vuln_data.get("matcher-name", "URL/Endpoint")
+                    )
+                except json.JSONDecodeError:
+                    # Catch non-JSON status messages if any
+                    continue
+            
+            process.wait()
         except FileNotFoundError:
-            # Outputs nuclei not found
-            print("[-] Nuclei not found.")
+            with print_lock:
+                print("[-] Nuclei not found. Skipping Phase 1.")
+        except Exception as e:
+            with print_lock:
+                print(f"[-] Nuclei execution error: {e}")
 
     def launch_dalfox(self, target_url):
         local_findings = []
