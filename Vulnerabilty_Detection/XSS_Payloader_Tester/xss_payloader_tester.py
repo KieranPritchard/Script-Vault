@@ -74,9 +74,12 @@ class XSSPayloadTester:
         with print_lock:
             print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
         
+
+        dalfox_path = "/snap/bin/dalfox"
+
         # Runs dalfox with headless browser verification
         try:
-            subprocess.run(["dalfox", "url", target_url, "--silence", "--skip-mining-all", "--fuzz"], check=False, shell=True)
+            subprocess.run([dalfox_path, "url", target_url, "--silence", "--skip-mining-all", "--fuzz"], check=False, shell=True)
         except FileNotFoundError:
             # Outputs error message
             print("[-] Dalfox not found.")
