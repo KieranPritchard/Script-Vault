@@ -1,7 +1,7 @@
 import requests
 import time
 import random
-import re
+import subprocess
 import os
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs, quote
@@ -56,24 +56,31 @@ class XSSPayloadTester:
         except: pass
         return visited
 
-    # Function to test parameters 
-    def scan_reflected(self, params_to_test):
-        # Loops over the parmeters in paremeters to test
-        for item in params_to_test:
-            # Loops over the payloads
-            for payload in self.payloads:
-                try:
-                    # Gets the response from the parameters and payloads
-                    res = self.session.get(item['action'], params={item['name']: payload}, headers=get_random_agent(), timeout=5)
-                    # Checks for the payload or URL encoded version
-                    if payload in res.text or quote(payload) in res.text:
-                        # Logs the result
-                        self._log_result("Reflected", payload, "Vulnerable", item['name'])
-                # Catches the errors
-                except requests.RequestException as e:
-                    # Outputs the error
-                    with print_lock:
-                        print(f"Connection error: {e}")
+    # Method to run nuclei discovery
+    def run_nuclei_discovery(self):
+        # Outputs that Nuclei is starting
+        with print_lock:
+            print(f"[*] Phase 1: Launching Nuclei templates against {self.target_url}")
+        
+        try:
+            # Runs nuclei focusing on xss tags
+            subprocess.run(["nuclei", "-u", self.target_url, "-tags", "xss", "-silent"], check=False)
+        except FileNotFoundError:
+            # Outputs nucli not found
+            print("[-] Nuclei not found.")
+
+    # Method to run dalfox discovery
+    def launch_dalfox(self, target_url):
+        # Outputs that Dalfox is starting
+        with print_lock:
+            print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
+        
+        # Runs dalfox with headless browser verification
+        try:
+            subprocess.run(["dalfox", "url", target_url, "--silence", "--skip-bmining-all"], check=False)
+        except FileNotFoundError:
+            # Outputs error message
+            print("[-] Dalfox not found.")
 
     # Method to scan the stored xss
     def scan_stored(self, post_path, view_path, form_data_key):
@@ -92,31 +99,6 @@ class XSSPayloadTester:
                     # Logsts the result
                     self._log_result("Stored", payload, "Vulnerable", form_data_key)
             except: continue
-
-    # Function to scan the dom
-    def scan_dom(self, fragment_trigger="#query="):
-        options = Options() # Stores the options
-        options.add_argument("--headless") # Runs without opening a window
-        driver = webdriver.Chrome(options=options) # Creates the web driver
-        
-        # Loops over the payloads
-        for payload in self.payloads:
-            # Creates the test url using the fragment
-            test_url = f"{self.target_url}{fragment_trigger}{payload}"
-            # Gets the test url with the dirver
-            driver.get(test_url)
-            try:
-                # Stores the alert
-                alert = driver.switch_to.alert
-                # Logs the result
-                self._log_result("DOM", payload, "Vulnerable", "URL Fragment")
-                # Accepts the alert
-                alert.accept()
-            except:
-                # Continues to next iteration if no alert found
-                continue
-        # Driver quit
-        driver.quit()
 
     # Method to log the result
     def _log_result(self, xss_type, payload, status, param=None):
