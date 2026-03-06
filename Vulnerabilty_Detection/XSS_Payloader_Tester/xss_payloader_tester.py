@@ -73,21 +73,16 @@ class XSSPayloadTester:
         with print_lock:
             print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
         
+        # Absolute path to your snap binary
         dalfox_path = "/snap/bin/dalfox"
         
-        # The correct order for Dalfox is: dalfox url [target] [flags]
-        cmd = [
-            dalfox_path, 
-            "url",              # The command
-            target_url,         # The target
-            "--silence", 
-            "--skip-mining-all", 
-            "--fuzz",            # Force fuzzing
-        ]
+        # We build the command as a single string for shell=True
+        # This is more reliable for snap packages in Kali
+        command = f"{dalfox_path} url {target_url} --silence --no-color --no-spinner --skip-mining-all --fuzz"
         
         try:
-            # We add shell=False to ensure the list is parsed correctly as arguments
-            subprocess.run(cmd, shell=True, check=False)
+            # Using shell=True and a string command often fixes the 'Help Menu' loop
+            subprocess.run(command, shell=True, check=False)
         except Exception as e:
             with print_lock:
                 print(f"[-] Dalfox execution error: {e}")
