@@ -56,7 +56,7 @@ class XSSPayloadTester:
         # worker set to 5 and added --delay for better accuracy
         commands = [
             [self.dalfox_path, "url", scan_url, "--worker", "5", "--delay", "100", "--waf-evasion", "--silence", "--no-color", "--format", "json"],
-            [self.dalfox_path, "sxss", scan_url, "--trigger", scan_url, "--worker", "5", "--delay", "100", "--silence", "--no-color", "--format", "json"]
+            [self.dalfox_path, "sxss", scan_url, "--trigger", scan_url, "--worker", "20", "--delay", "100", "--silence", "--no-color", "--format", "json"]
         ]
 
         for cmd in commands:
