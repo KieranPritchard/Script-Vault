@@ -11,14 +11,6 @@ from bs4 import BeautifulSoup
 CONCURRENCY_LIMIT = 10
 SCAN_TIMEOUT = 60 
 
-# Map Dalfox shorthand types to readable labels
-TYPE_MAP = {
-    "R": "Reflected XSS",
-    "S": "Stored XSS",
-    "V": "Verified (DOM) XSS",
-    "G": "Grep/Potential XSS"
-}
-
 class XSSOrchestrator:
     def __init__(self, base_url):
         self.base_url = base_url
@@ -42,10 +34,12 @@ class XSSOrchestrator:
 
     def run_dalfox(self, target_url):
         output_file = f"result_{uuid.uuid4().hex}.json"
+        # Using absolute path to fix FileNotFoundError
         dalfox_path = "/snap/bin/dalfox" 
         cmd = [dalfox_path, "url", target_url, "--silence", "--no-color", "--format", "json", "-o", output_file]
         
         try:
+            # Added check for binary existence before running
             if not os.path.exists(dalfox_path):
                 print(f"[-] Error: Dalfox not found at {dalfox_path}")
                 return []
@@ -78,14 +72,11 @@ class XSSOrchestrator:
             results = await loop.run_in_executor(None, self.run_dalfox, url)
             
             for r in results:
-                # Resolve the shorthand type to a readable name
-                raw_type = r.get('type', 'R')
-                readable_type = TYPE_MAP.get(raw_type, f"Unknown ({raw_type})")
-                
-                finding = {"type": readable_type, "param": r.get('param'), "url": url}
+                # Store simplified finding to prevent console spam
+                finding = {"type": r.get('type'), "param": r.get('param'), "url": url}
                 if finding not in self.findings:
                     self.findings.append(finding)
-                    print(f"[!] {readable_type} FOUND: Parameter '{r.get('param')}' at {url}")
+                    print(f"[!] {r.get('type')} XSS FOUND: Parameter '{r.get('param')}' at {url}")
 
     async def run(self):
         print(f"[*] Starting Rebuilt Orchestrator against {self.base_url}")
@@ -93,6 +84,7 @@ class XSSOrchestrator:
         to_crawl = [self.base_url]
         unique_targets = set()
         
+        # Initial Crawl Phase
         while to_crawl:
             current = to_crawl.pop(0)
             new_links = await self.fetch_links(current)
