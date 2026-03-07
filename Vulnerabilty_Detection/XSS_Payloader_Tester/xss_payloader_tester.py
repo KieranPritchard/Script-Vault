@@ -16,182 +16,137 @@ print_lock = Lock()
 def get_random_agent():
     agents = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/121.0",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     ]
     return {"User-Agent": random.choice(agents)}
 
 class XSSPayloadTester:
-    def __init__(self, target_url, payloads):
+    def __init__(self, target_url):
         self.target_url = target_url
-        self.payloads = payloads
         self.session = requests.Session()
         self.results = []
         self.results_lock = Lock()
         self.target_domain = urlparse(target_url).netloc
-        self.dalfox_path = shutil.which("dalfox") or "/snap/bin/dalfox"
+        # Auto-detect tool paths
+        self.dalfox = shutil.which("dalfox")
+        self.nuclei = shutil.which("nuclei")
+        
+        if not self.dalfox or not self.nuclei:
+            print("[!] WARNING: dalfox or nuclei not found in PATH. Results will be limited.")
 
     def safe_request(self, method, url, **kwargs):
         try:
-            kwargs['headers'] = get_random_agent()
-            kwargs['timeout'] = 7
+            kwargs.setdefault('headers', get_random_agent())
+            kwargs.setdefault('timeout', 10)
+            kwargs.setdefault('allow_redirects', True)
             return self.session.request(method, url, **kwargs)
         except Exception:
             return None
 
     def crawl(self, url, visited=None):
         if visited is None: visited = set()
-        parsed_url = urlparse(url)
-        if url in visited or self.target_domain not in parsed_url.netloc:
+        parsed = urlparse(url)
+        if url in visited or self.target_domain not in parsed.netloc:
             return visited
         
-        # Avoid static files
-        if any(parsed_url.path.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf', '.jpeg', '.woff', '.svg']):
+        if any(parsed.path.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf', '.woff', '.svg']):
             return visited
 
-        with print_lock:
-            print(f"[*] Crawling: {url}")
-        
+        with print_lock: print(f"[*] Crawling: {url}")
         visited.add(url)
+        
         res = self.safe_request('GET', url)
-        if not res or 'text/html' not in res.headers.get('Content-Type', ''): 
+        if not res or 'text/html' not in res.headers.get('Content-Type', ''):
             return visited
 
         try:
             soup = BeautifulSoup(res.text, 'html.parser')
+            # Follow links
             for link in soup.find_all('a', href=True):
                 full_url = urljoin(url, link['href']).split('#')[0]
                 self.crawl(full_url, visited)
-        except Exception:
-            pass
+            
+            # Identify forms - crucial for "hits"
+            forms = soup.find_all('form')
+            if forms:
+                with print_lock: print(f"    [+] Found {len(forms)} form(s) on {url}")
+        except Exception: pass
         return visited
 
-    def run_nuclei_discovery(self, target):
-        with print_lock:
-            print(f"[*] Phase 1: Launching Nuclei against {target}")
+    def run_nuclei(self, target):
+        if not self.nuclei: return
+        with print_lock: print(f"[*] Launching Nuclei (Headless) against {target}...")
         try:
-            command = ["nuclei", "-u", target, "-tags", "xss", "-severity", "medium,high,critical", "-silent", "-jsonl"]
-            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            try:
-                stdout, _ = proc.communicate(timeout=180)
-                for line in stdout.splitlines():
-                    try:
-                        vuln_data = json.loads(line)
-                        self._log_result(
-                            f"Nuclei-{vuln_data.get('info', {}).get('severity', '').upper()}", 
-                            vuln_data.get("matched-at"), 
-                            "Vulnerable", 
-                            vuln_data.get("matcher-name")
-                        )
-                    except Exception: continue
-            except subprocess.TimeoutExpired:
-                proc.kill()
-        except Exception: pass
+            # -headless is critical for modern XSS discovery
+            cmd = [self.nuclei, "-u", target, "-tags", "xss", "-headless", "-severity", "medium,high,critical", "-silent", "-jsonl"]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, _ = proc.communicate(timeout=300)
+            for line in stdout.splitlines():
+                try:
+                    data = json.loads(line)
+                    self._log_result(f"Nuclei-{data.get('info',{}).get('severity','').upper()}", data.get("matched-at"), "Vulnerable", data.get("matcher-name"))
+                except: continue
+        except Exception as e:
+            with print_lock: print(f"[-] Nuclei Error: {e}")
 
-    def launch_dalfox(self, target_url):
-        local_findings = []
-        command = [self.dalfox_path, "url", target_url, "--delay", "50", "--waf-evasion", "--skip-mining-all", "--silence", "--no-color", "--no-spinner", "--format", "json"]
+    def run_dalfox(self, target):
+        if not self.dalfox: return
+        with print_lock: print(f"[*] Launching Dalfox against {target}...")
         try:
-            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            try:
-                stdout, _ = proc.communicate(timeout=60)
-                for line in stdout.splitlines():
-                    clean_line = line.strip().rstrip(',')
-                    if not clean_line or clean_line in ["[", "]"]: continue
-                    try:
-                        vuln_data = json.loads(clean_line)
-                        finding = {"type": "Dalfox-"+vuln_data.get("type", "R"), "payload": vuln_data.get("poc", "N/A"), "status": "Vulnerable", "parameter": vuln_data.get("param", "unknown")}
-                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
-                        local_findings.append(finding)
-                    except Exception: continue
-            except subprocess.TimeoutExpired:
-                proc.kill()
-        except Exception: pass
-        return local_findings
+            # Added --mining-dict and --deep-dom for better coverage
+            cmd = [self.dalfox, "url", target, "--delay", "100", "--waf-evasion", "--no-color", "--format", "json", "--silence"]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, _ = proc.communicate(timeout=120)
+            for line in stdout.splitlines():
+                line = line.strip().rstrip(',')
+                if not line or line in ["[", "]"]: continue
+                try:
+                    data = json.loads(line)
+                    self._log_result("Dalfox-"+data.get("type", "R"), data.get("poc"), "Vulnerable", data.get("param"))
+                except: continue
+        except Exception as e:
+            with print_lock: print(f"[-] Dalfox Error: {e}")
 
-    def scan_stored_dalfox(self, page_url):
-        local_findings = []
-        command = [self.dalfox_path, "sxss", page_url, "--trigger", page_url, "-X", "POST", "--delay", "50", "--skip-mining-all", "--silence", "--no-color", "--format", "json"]
-        try:
-            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            try:
-                stdout, _ = proc.communicate(timeout=60)
-                for line in stdout.splitlines():
-                    clean_line = line.strip().rstrip(',')
-                    if not clean_line or clean_line in ["[", "]"]: continue
-                    try:
-                        vuln_data = json.loads(clean_line)
-                        finding = {"type": "Stored (Verified)", "payload": vuln_data.get("poc", "N/A"), "status": "Vulnerable", "parameter": vuln_data.get("param", "unknown")}
-                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
-                        local_findings.append(finding)
-                    except Exception: continue
-            except subprocess.TimeoutExpired:
-                proc.kill()
-        except Exception: pass
-        return local_findings
-
-    def _log_result(self, xss_type, payload, status, param=None):
-        if status == "Vulnerable" and payload and payload != "N/A":
-            finding_sig = f"{xss_type}-{param}-{payload}"
-            with self.results_lock:
-                if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == finding_sig for r in self.results):
-                    result = {"type": xss_type, "payload": payload, "status": status, "parameter": param}
-                    self.results.append(result)
-                    with print_lock:
-                        print(f"[!] {xss_type} FOUND on param: {param}")
-
-    def scan_page_workflow(self, page):
-        findings = self.launch_dalfox(page)
-        stored = self.scan_stored_dalfox(page)
-        if stored: findings.extend(stored)
-        return findings
+    def _log_result(self, xtype, payload, status, param):
+        sig = f"{xtype}-{param}-{payload}"
+        with self.results_lock:
+            if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == sig for r in self.results):
+                self.results.append({"type": xtype, "payload": payload, "status": status, "parameter": param})
+                with print_lock:
+                    print(f"[!] {xtype} DETECTED! Parameter: {param}")
 
 def main():
-    start_time = time.perf_counter() 
-    url = input("Enter Target URL (e.g., http://testphp.vulnweb.com): ").strip()
-    if not url.startswith("http"):
-        print("Invalid URL format.")
-        return
+    target = input("Target URL (e.g. http://testphp.vulnweb.com): ").strip()
+    if not target.startswith("http"): return print("Invalid URL.")
 
-    scanner = XSSPayloadTester(url, [])
-    scanner.run_nuclei_discovery(url)
+    scanner = XSSPayloadTester(target)
     
-    print("[*] Mapping site structure...")
-    raw_pages = scanner.crawl(url)
+    # Pre-check tools
+    if scanner.nuclei:
+        subprocess.run([scanner.nuclei, "-ut"], capture_output=True) # Update templates
     
-    unique_pages = {}
-    for p in raw_pages:
+    print("[*] Phase 1: Global Discovery...")
+    scanner.run_nuclei(target)
+    
+    print("[*] Phase 2: Crawling and Deep Scanning...")
+    pages = scanner.crawl(target)
+    
+    # Filter unique paths for Dalfox to avoid redundant work
+    unique_targets = {}
+    for p in pages:
         parsed = urlparse(p)
-        params = tuple(sorted(parse_qs(parsed.query).keys()))
-        sig = (parsed.path, params)
-        if sig not in unique_pages:
-            unique_pages[sig] = p
-    
-    scan_list = list(unique_pages.values())
-    print(f"[*] Deduplicated {len(raw_pages)} down to {len(scan_list)} unique target paths.")
+        sig = (parsed.path, tuple(sorted(parse_qs(parsed.query).keys())))
+        if sig not in unique_targets: unique_targets[sig] = p
 
-    vulnerability_log = []
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(scanner.scan_page_workflow, page): page for page in scan_list}
-        for future in futures:
-            try:
-                res = future.result()
-                if res: vulnerability_log.extend(res)
-            except Exception as e:
-                continue
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        executor.map(scanner.run_dalfox, unique_targets.values())
 
-    elapsed = time.perf_counter() - start_time
-    print(f"\n[✓] Finished in {elapsed:.2f} seconds. Total unique hits: {len(scanner.results)}")
-
+    print(f"\n[✓] Scan complete. Total unique hits: {len(scanner.results)}")
     if scanner.results:
-        counts = Counter(v['type'] for v in scanner.results)
-        print("\n" + "="*45)
-        print(f"{'Vulnerability Type':<30} | {'Count':>5}")
-        print("-" * 45)
-        for v_type, count in counts.items():
-            print(f"{v_type:<30} | {count:>5}")
-        print("="*45)
+        print("\nSummary of Findings:")
+        for t, c in Counter(r['type'] for r in scanner.results).items():
+            print(f" - {t}: {c}")
 
 if __name__ == "__main__":
     main()
