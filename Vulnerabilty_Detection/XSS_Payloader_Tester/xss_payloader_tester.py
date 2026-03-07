@@ -9,7 +9,6 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from collections import Counter
 
 print_lock = Lock()
 
@@ -20,9 +19,10 @@ class XSSPayloadTester:
         self.results = []
         self.results_lock = Lock()
         self.target_domain = urlparse(target_url).netloc
-        self.dalfox_path = shutil.which("dalfox")
-        if not self.dalfox_path:
-            self.dalfox_path = os.path.expanduser("~/go/bin/dalfox")
+        
+        # Locate binaries
+        self.dalfox_path = shutil.which("dalfox") or os.path.expanduser("~/go/bin/dalfox")
+        self.nuclei_path = shutil.which("nuclei") or os.path.expanduser("~/go/bin/nuclei")
 
     def get_headers(self):
         return {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
@@ -49,14 +49,34 @@ class XSSPayloadTester:
         except: pass
         return visited
 
+    def run_nuclei(self, target_url):
+        if not os.path.exists(self.nuclei_path):
+            with print_lock: print("[!] Nuclei binary not found. Skipping Phase 2.")
+            return
+
+        with print_lock: print(f"[*] Nuclei Scanning: {target_url}")
+        
+        # Tags focus on XSS and related exposures
+        command = [self.nuclei_path, "-u", target_url, "-tags", "xss,generic", "-severity", "low,medium,high,critical", "-silent", "-jsonl"]
+        
+        try:
+            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, _ = proc.communicate(timeout=300)
+            for line in stdout.splitlines():
+                if line.strip():
+                    try:
+                        data = json.loads(line)
+                        v_type = f"Nuclei-{data.get('info', {}).get('severity', 'info')}"
+                        self._log_result(v_type, data.get("matched-at"), "Vulnerable", data.get("template-id"))
+                    except: pass
+        except Exception as e:
+            with print_lock: print(f"[-] Nuclei Error: {e}")
+
     def run_dalfox(self, target_url):
         if not os.path.exists(self.dalfox_path): return
 
-        # Reflected & DOM Scan
         scan_url = target_url if "?" in target_url else target_url + "?id=1&q=test"
         
-        # Stored XSS Scan (sxss) - specifically targets current page as trigger
-        # We run both commands to ensure full coverage
         commands = [
             [self.dalfox_path, "url", scan_url, "--worker", "10", "--waf-evasion", "--silence", "--no-color", "--format", "json"],
             [self.dalfox_path, "sxss", scan_url, "--trigger", scan_url, "--worker", "10", "--silence", "--no-color", "--format", "json"]
@@ -71,11 +91,9 @@ class XSSPayloadTester:
                     if clean_line.startswith('{'):
                         try:
                             data = json.loads(clean_line)
-                            # Logic to catch the actual PoC payload
                             poc = data.get("poc") or data.get("injection_point") or data.get("url")
                             v_type = f"Dalfox-{data.get('type', 'Unknown')}"
                             if "sxss" in cmd: v_type = "Stored-XSS"
-                            
                             self._log_result(v_type, poc, "Vulnerable", data.get("param", "unknown"))
                         except: pass
             except: pass
@@ -88,7 +106,7 @@ class XSSPayloadTester:
                 self.results.append(res_entry)
                 with print_lock:
                     print(f"\n[!] {xtype} DETECTED!")
-                    print(f"    Param: {param} | PoC: {payload}\n")
+                    print(f"    Target/Param: {param} | PoC: {payload}\n")
 
     def save_results_to_csv(self, filename="xss_results.csv"):
         if not self.results:
@@ -105,6 +123,7 @@ def main():
     target = input("Enter Target URL: ").strip()
     if not target.startswith("http"): return
     
+    start_time = time.perf_counter()
     scanner = XSSPayloadTester(target)
     
     print("\n--- PHASE 1: HIGH-SPEED CRAWLING ---")
@@ -118,13 +137,18 @@ def main():
     scan_list = list(unique_paths.values())
     print(f"[✓] Found {len(scan_list)} unique targets.")
 
-    print("\n--- PHASE 2: CONCURRENT DALFOX SCAN (Reflected + Stored) ---")
-    # Increased max_workers for faster processing
+    print("\n--- PHASE 2: NUCLEI TEMPLATE SCAN ---")
+    scanner.run_nuclei(target)
+
+    print("\n--- PHASE 3: CONCURRENT DALFOX SCAN (Reflected + Stored) ---")
     with ThreadPoolExecutor(max_workers=10) as executor:
         executor.map(scanner.run_dalfox, scan_list)
 
     scanner.save_results_to_csv()
-    print(f"[✓] Scan Complete. Total unique vulnerabilities: {len(scanner.results)}")
+    
+    elapsed = time.perf_counter() - start_time
+    print(f"\n[✓] Scan Complete in {elapsed:.2f} seconds.")
+    print(f"[✓] Total unique vulnerabilities found: {len(scanner.results)}")
 
 if __name__ == "__main__":
     main()
