@@ -4,15 +4,14 @@ import os
 import uuid
 import subprocess
 import requests
-import time
 from urllib.parse import urljoin, urlparse, parse_qs
 from bs4 import BeautifulSoup
-from collections import Counter
 
 # --- Configuration & State ---
 CONCURRENCY_LIMIT = 10
-SCAN_TIMEOUT = 90  # Slightly increased for thoroughness
+SCAN_TIMEOUT = 60 
 
+# Map Dalfox shorthand types to readable labels
 TYPE_MAP = {
     "R": "Reflected XSS",
     "S": "Stored XSS",
@@ -32,8 +31,6 @@ class XSSOrchestrator:
     async def fetch_links(self, url):
         if url in self.visited or self.domain not in urlparse(url).netloc:
             return []
-        if any(url.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf']):
-            return []
         self.visited.add(url)
         try:
             res = requests.get(url, timeout=5, headers={'User-Agent': 'Mozilla/5.0'})
@@ -46,11 +43,11 @@ class XSSOrchestrator:
     def run_dalfox(self, target_url):
         output_file = f"result_{uuid.uuid4().hex}.json"
         dalfox_path = "/snap/bin/dalfox" 
-        # Using -X POST for pages likely to have forms for better Stored coverage
         cmd = [dalfox_path, "url", target_url, "--silence", "--no-color", "--format", "json", "-o", output_file]
         
         try:
             if not os.path.exists(dalfox_path):
+                print(f"[-] Error: Dalfox not found at {dalfox_path}")
                 return []
 
             proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -65,13 +62,13 @@ class XSSOrchestrator:
                 with open(output_file, 'r') as f:
                     data = f.read().strip()
                     try:
-                        return json.loads(data) if data.startswith('[') else [json.loads(l) for l in data.splitlines()]
+                        results = json.loads(data) if data.startswith('[') else [json.loads(l) for l in data.splitlines()]
+                        return results
                     except: return []
-        except:
-            pass
+        except Exception as e:
+            print(f"[-] Subprocess error: {e}")
         finally:
-            if os.path.exists(output_file):
-                os.remove(output_file)
+            if os.path.exists(output_file): os.remove(output_file)
         return []
 
     async def worker(self, url):
@@ -81,18 +78,17 @@ class XSSOrchestrator:
             results = await loop.run_in_executor(None, self.run_dalfox, url)
             
             for r in results:
+                # Resolve the shorthand type to a readable name
                 raw_type = r.get('type', 'R')
                 readable_type = TYPE_MAP.get(raw_type, f"Unknown ({raw_type})")
-                finding = {"type": readable_type, "param": r.get('param'), "url": url, "poc": r.get('poc')}
                 
-                # Deduplicate findings per parameter per page
-                if not any(f['url'] == url and f['param'] == finding['param'] and f['type'] == readable_type for f in self.findings):
+                finding = {"type": readable_type, "param": r.get('param'), "url": url}
+                if finding not in self.findings:
                     self.findings.append(finding)
-                    print(f"[!] {readable_type} FOUND: Param '{finding['param']}' at {url}")
+                    print(f"[!] {readable_type} FOUND: Parameter '{r.get('param')}' at {url}")
 
     async def run(self):
-        start_time = time.perf_counter()
-        print(f"[*] Starting Orchestrator against {self.base_url}")
+        print(f"[*] Starting Rebuilt Orchestrator against {self.base_url}")
         
         to_crawl = [self.base_url]
         unique_targets = set()
@@ -108,7 +104,7 @@ class XSSOrchestrator:
                     await self.queue.put(link)
                     to_crawl.append(link)
 
-        print(f"[*] Discovery complete. Processing {self.queue.qsize()} unique targets...")
+        print(f"[*] Discovery complete. Processing {self.queue.qsize()} unique structures...")
 
         tasks = []
         while not self.queue.empty():
@@ -118,36 +114,11 @@ class XSSOrchestrator:
         if tasks:
             await asyncio.gather(*tasks)
         
-        elapsed = time.perf_counter() - start_time
-        self.print_summary(elapsed)
-
-    def print_summary(self, elapsed):
-        print(f"\n[✓] Scan Finished in {elapsed:.2f} seconds")
-        if not self.findings:
-            print("[-] No vulnerabilities detected.")
-            return
-
-        counts = Counter(f['type'] for f in self.findings)
-        print("\n" + "="*50)
-        print(f"{'XSS VULNERABILITY SUMMARY':^50}")
-        print("="*50)
-        for v_type, count in counts.items():
-            print(f"{v_type:<40} | {count:>5}")
-        print("="*50)
-
-        save = input(f"\n[!] {len(self.findings)} hits found. Save to file? (y/n): ").lower()
-        if save == 'y':
-            with open("xss_scan_results.txt", "w") as f:
-                f.write(f"XSS SCAN REPORT - {self.base_url}\n")
-                f.write(f"Duration: {elapsed:.2f} seconds\n")
-                f.write("-" * 50 + "\n")
-                for fnd in self.findings:
-                    f.write(f"Type: {fnd['type']} | Param: {fnd['param']} | URL: {fnd['url']}\n")
-                    f.write(f"POC: {fnd['poc']}\n\n")
-            print("[+] Results saved to xss_scan_results.txt")
+        print(f"\n[✓] Scan Complete. Total unique hits: {len(self.findings)}")
 
 if __name__ == "__main__":
-    target = input("Enter Target URL: ").strip()
-    if target:
-        if not target.startswith("http"): target = "http://" + target
-        asyncio.run(XSSOrchestrator(target).run())
+    target_input = input("Enter Target URL: ").strip()
+    if not target_input.startswith("http"):
+        target_input = "http://" + target_input
+    orchestrator = XSSOrchestrator(target_input)
+    asyncio.run(orchestrator.run())
