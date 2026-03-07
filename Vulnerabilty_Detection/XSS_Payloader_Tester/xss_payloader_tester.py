@@ -22,9 +22,7 @@ class XSSPayloadTester:
         self.target_domain = urlparse(target_url).netloc
         self.dalfox_path = shutil.which("dalfox")
         if not self.dalfox_path:
-            go_bin = os.path.expanduser("~/go/bin/dalfox")
-            if os.path.exists(go_bin):
-                self.dalfox_path = go_bin
+            self.dalfox_path = os.path.expanduser("~/go/bin/dalfox")
 
     def get_headers(self):
         return {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
@@ -34,7 +32,7 @@ class XSSPayloadTester:
         parsed = urlparse(url)
         if url in visited or self.target_domain not in parsed.netloc:
             return visited
-        if any(parsed.path.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf', '.woff']):
+        if any(parsed.path.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf', '.woff', '.svg']):
             return visited
 
         with print_lock:
@@ -42,7 +40,7 @@ class XSSPayloadTester:
         visited.add(url)
 
         try:
-            res = self.session.get(url, headers=self.get_headers(), timeout=10)
+            res = self.session.get(url, headers=self.get_headers(), timeout=7)
             if res.status_code == 200 and 'text/html' in res.headers.get('Content-Type', ''):
                 soup = BeautifulSoup(res.text, 'html.parser')
                 for link in soup.find_all('a', href=True):
@@ -52,88 +50,81 @@ class XSSPayloadTester:
         return visited
 
     def run_dalfox(self, target_url):
-        if not self.dalfox_path:
-            return
-        
-        scan_url = target_url
-        if "?" not in scan_url:
-            scan_url += "?id=1&q=test&search=query"
+        if not os.path.exists(self.dalfox_path): return
 
-        with print_lock:
-            print(f"[*] Testing: {scan_url}")
-
-        command = [self.dalfox_path, "url", scan_url, "--worker", "5", "--waf-evasion", "--silence", "--no-color", "--format", "json"]
+        # Reflected & DOM Scan
+        scan_url = target_url if "?" in target_url else target_url + "?id=1&q=test"
         
-        try:
-            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, _ = proc.communicate(timeout=90)
-            for line in stdout.splitlines():
-                line = line.strip().rstrip(',')
-                if line.startswith('{'):
-                    try:
-                        data = json.loads(line)
-                        # Extract the PoC if it exists, otherwise use the injection point
-                        poc = data.get("poc") or data.get("injection_point") or "Manual Check Required"
-                        self._log_result(f"Dalfox-{data.get('type')}", poc, "Vulnerable", data.get("param"))
-                    except: pass
-        except: pass
+        # Stored XSS Scan (sxss) - specifically targets current page as trigger
+        # We run both commands to ensure full coverage
+        commands = [
+            [self.dalfox_path, "url", scan_url, "--worker", "10", "--waf-evasion", "--silence", "--no-color", "--format", "json"],
+            [self.dalfox_path, "sxss", scan_url, "--trigger", scan_url, "--worker", "10", "--silence", "--no-color", "--format", "json"]
+        ]
+
+        for cmd in commands:
+            try:
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                stdout, _ = proc.communicate(timeout=120)
+                for line in stdout.splitlines():
+                    clean_line = line.strip().rstrip(',')
+                    if clean_line.startswith('{'):
+                        try:
+                            data = json.loads(clean_line)
+                            # Logic to catch the actual PoC payload
+                            poc = data.get("poc") or data.get("injection_point") or data.get("url")
+                            v_type = f"Dalfox-{data.get('type', 'Unknown')}"
+                            if "sxss" in cmd: v_type = "Stored-XSS"
+                            
+                            self._log_result(v_type, poc, "Vulnerable", data.get("param", "unknown"))
+                        except: pass
+            except: pass
 
     def _log_result(self, xtype, payload, status, param):
         sig = f"{xtype}-{param}-{payload}"
         with self.results_lock:
             if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == sig for r in self.results):
-                self.results.append({
-                    "type": xtype, 
-                    "payload": payload, 
-                    "status": status, 
-                    "parameter": param
-                })
+                res_entry = {"type": xtype, "parameter": param, "payload": payload, "status": status}
+                self.results.append(res_entry)
                 with print_lock:
-                    print(f"\n[!] VULNERABILITY FOUND: {xtype}")
-                    print(f"    Parameter: {param}")
-                    print(f"    PoC: {payload}\n")
+                    print(f"\n[!] {xtype} DETECTED!")
+                    print(f"    Param: {param} | PoC: {payload}\n")
 
     def save_results_to_csv(self, filename="xss_results.csv"):
         if not self.results:
-            print("[!] No results to save.")
+            print("[!] No vulnerabilities found to export.")
             return
-        
-        keys = self.results[0].keys()
-        try:
-            with open(filename, 'w', newline='') as output_file:
-                dict_writer = csv.DictWriter(output_file, fieldnames=keys)
-                dict_writer.writeheader()
-                dict_writer.writerows(self.results)
-            print(f"[✓] Results successfully exported to {filename}")
-        except Exception as e:
-            print(f"[-] Error saving CSV: {e}")
+        keys = ["type", "parameter", "payload", "status"]
+        with open(filename, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(self.results)
+        print(f"[✓] Final report saved to {filename}")
 
 def main():
     target = input("Enter Target URL: ").strip()
-    if not target.startswith("http"):
-        print("Invalid URL format.")
-        return
-
+    if not target.startswith("http"): return
+    
     scanner = XSSPayloadTester(target)
     
-    print("\n--- PHASE 1: CRAWLING SITE ---")
+    print("\n--- PHASE 1: HIGH-SPEED CRAWLING ---")
     discovered_urls = scanner.crawl(target)
     
     unique_paths = {}
     for url in discovered_urls:
         p = urlparse(url)
-        if p.path not in unique_paths:
-            unique_paths[p.path] = url
+        if p.path not in unique_paths: unique_paths[p.path] = url
     
     scan_list = list(unique_paths.values())
-    print(f"[✓] Crawl complete. Found {len(discovered_urls)} pages. Deduplicated to {len(scan_list)} unique paths.")
+    print(f"[✓] Found {len(scan_list)} unique targets.")
 
-    print("\n--- PHASE 2: TESTING WITH DALFOX ---")
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    print("\n--- PHASE 2: CONCURRENT DALFOX SCAN (Reflected + Stored) ---")
+    # Increased max_workers for faster processing
+    with ThreadPoolExecutor(max_workers=10) as executor:
         executor.map(scanner.run_dalfox, scan_list)
 
-    print(f"\n[✓] All tests finished. Total Unique Hits: {len(scanner.results)}")
     scanner.save_results_to_csv()
+    print(f"[✓] Scan Complete. Total unique vulnerabilities: {len(scanner.results)}")
 
 if __name__ == "__main__":
     main()
