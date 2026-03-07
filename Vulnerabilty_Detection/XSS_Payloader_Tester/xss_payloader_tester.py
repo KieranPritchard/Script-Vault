@@ -4,6 +4,7 @@ import subprocess
 import os
 import json
 import shutil
+import csv
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs
 from concurrent.futures import ThreadPoolExecutor
@@ -20,7 +21,6 @@ class XSSPayloadTester:
         self.results_lock = Lock()
         self.target_domain = urlparse(target_url).netloc
         self.dalfox_path = shutil.which("dalfox")
-        # Ensure it uses the Go-installed version in /home/user/go/bin
         if not self.dalfox_path:
             go_bin = os.path.expanduser("~/go/bin/dalfox")
             if os.path.exists(go_bin):
@@ -55,7 +55,6 @@ class XSSPayloadTester:
         if not self.dalfox_path:
             return
         
-        # If the crawled URL has no params, add some for discovery
         scan_url = target_url
         if "?" not in scan_url:
             scan_url += "?id=1&q=test&search=query"
@@ -67,13 +66,15 @@ class XSSPayloadTester:
         
         try:
             proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, _ = proc.communicate(timeout=60)
+            stdout, _ = proc.communicate(timeout=90)
             for line in stdout.splitlines():
                 line = line.strip().rstrip(',')
                 if line.startswith('{'):
                     try:
                         data = json.loads(line)
-                        self._log_result(f"Dalfox-{data.get('type')}", data.get("poc"), "Vulnerable", data.get("param"))
+                        # Extract the PoC if it exists, otherwise use the injection point
+                        poc = data.get("poc") or data.get("injection_point") or "Manual Check Required"
+                        self._log_result(f"Dalfox-{data.get('type')}", poc, "Vulnerable", data.get("param"))
                     except: pass
         except: pass
 
@@ -81,10 +82,31 @@ class XSSPayloadTester:
         sig = f"{xtype}-{param}-{payload}"
         with self.results_lock:
             if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == sig for r in self.results):
-                self.results.append({"type": xtype, "payload": payload, "status": status, "parameter": param})
+                self.results.append({
+                    "type": xtype, 
+                    "payload": payload, 
+                    "status": status, 
+                    "parameter": param
+                })
                 with print_lock:
-                    print(f"\n[!] VULNERABILITY FOUND: {xtype} on param '{param}'")
+                    print(f"\n[!] VULNERABILITY FOUND: {xtype}")
+                    print(f"    Parameter: {param}")
                     print(f"    PoC: {payload}\n")
+
+    def save_results_to_csv(self, filename="xss_results.csv"):
+        if not self.results:
+            print("[!] No results to save.")
+            return
+        
+        keys = self.results[0].keys()
+        try:
+            with open(filename, 'w', newline='') as output_file:
+                dict_writer = csv.DictWriter(output_file, fieldnames=keys)
+                dict_writer.writeheader()
+                dict_writer.writerows(self.results)
+            print(f"[✓] Results successfully exported to {filename}")
+        except Exception as e:
+            print(f"[-] Error saving CSV: {e}")
 
 def main():
     target = input("Enter Target URL: ").strip()
@@ -94,11 +116,9 @@ def main():
 
     scanner = XSSPayloadTester(target)
     
-    # PHASE 1: CRAWL FIRST
     print("\n--- PHASE 1: CRAWLING SITE ---")
     discovered_urls = scanner.crawl(target)
     
-    # Deduplicate paths (ignoring slight param variations for efficiency)
     unique_paths = {}
     for url in discovered_urls:
         p = urlparse(url)
@@ -108,12 +128,12 @@ def main():
     scan_list = list(unique_paths.values())
     print(f"[✓] Crawl complete. Found {len(discovered_urls)} pages. Deduplicated to {len(scan_list)} unique paths.")
 
-    # PHASE 2: TEST WITH DALFOX
     print("\n--- PHASE 2: TESTING WITH DALFOX ---")
     with ThreadPoolExecutor(max_workers=3) as executor:
         executor.map(scanner.run_dalfox, scan_list)
 
     print(f"\n[✓] All tests finished. Total Unique Hits: {len(scanner.results)}")
+    scanner.save_results_to_csv()
 
 if __name__ == "__main__":
     main()
