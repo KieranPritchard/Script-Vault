@@ -250,10 +250,13 @@ def get_random_agent():
     ua_path = "../../Resources/user_agent_strings.txt"
     
     if os.path.exists(ua_path):
-        # Opens the file
-        with open(ua_path, "r") as f:
-            # Extracts the user agents as a list
-            user_agents = [ua.strip() for ua.strip() in f if ua.strip()]
+        try:
+            # Opens the file
+            with open(ua_path, "r") as f:
+                user_agents = [ua.strip() for ua in f if ua.strip()]
+        except Exception as e:
+            with print_lock:
+                print(f"[-] Error reading user agents: {e}")
 
     # Returns the headers with a random agent
     return {"User-Agent": random.choice(user_agents)}
