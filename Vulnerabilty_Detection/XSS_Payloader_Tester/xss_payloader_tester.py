@@ -115,7 +115,7 @@ def main():
     print(f"[✓] Found {len(scan_list)} unique targets.")
 
     print("\n--- PHASE 2: CONCURRENT DALFOX SCAN (Reflected + Stored) ---")
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(scanner.run_dalfox, scan_list)
 
     scanner.save_results_to_csv()
