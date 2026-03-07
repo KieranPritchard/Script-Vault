@@ -4,11 +4,11 @@ import random
 import subprocess
 import os
 import json
+import uuid # Added to support unique canary generation for stored XSS
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs, quote
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-import uuid
 
 # A Lock prevents threads from printing over each other
 print_lock = Lock()
@@ -158,18 +158,16 @@ class XSSPayloadTester:
                 print(f"[-] Dalfox execution error: {e}")
             return []
 
+    # Method to scan stored xss using a Canary-Mapping technique for speed and accuracy
     def scan_stored_custom(self, page_url, all_pages):
-        """
-        Improved Stored XSS logic: 
-        1. Injects a unique 'Canary' into the current page.
-        2. Checks ALL other discovered pages to see if the Canary appears.
-        """
+        # We use a unique Canary to identify where data submitted here appears on the rest of the site
         canary_id = f"STORED_CHECK_{uuid.uuid4().hex[:4]}"
         with print_lock:
-            print(f"[*] Phase 4: Stored Mapping - Injecting canary {canary_id} into {page_url}")
-
-        # Step 1: Attempt to plant the canary in any forms found on the page
+            print(f"[*] Phase 4: Stored XSS Mode - Mapping {page_url} across site surface")
+        
+        local_stored_findings = []
         try:
+            # First, we try to plant the Canary in any forms found on the page
             res = self.session.get(page_url, timeout=5)
             soup = BeautifulSoup(res.text, 'html.parser')
             forms = soup.find_all('form')
@@ -177,52 +175,40 @@ class XSSPayloadTester:
             for form in forms:
                 action = urljoin(page_url, form.get('action'))
                 method = form.get('method', 'get').lower()
-                inputs = form.find_all(['input', 'textarea'])
+                # Fill every input and textarea with our unique Canary
+                data = {i.get('name'): canary_id for i in form.find_all(['input', 'textarea']) if i.get('name')}
                 
-                data = {}
-                for ipt in inputs:
-                    name = ipt.get('name')
-                    if name:
-                        data[name] = canary_id # Plant the canary in every field
-                
-                # Submit the form
                 if method == 'post':
                     self.session.post(action, data=data, timeout=5)
                 else:
                     self.session.get(action, params=data, timeout=5)
-        except Exception as e:
-            return []
 
-        # Step 2: Verification - Check every page in the crawl list for this canary
-        stored_findings = []
-        for check_page in all_pages:
-            try:
-                # We do a fresh GET to see if the stored data now renders
+            # Verification step: Check all previously crawled pages for our Canary
+            for check_page in all_pages:
                 verify_res = self.session.get(check_page, timeout=5)
                 if canary_id in verify_res.text:
-                    with print_lock:
-                        print(f"[!] STORED REFLECTION DETECTED: {page_url} -> {check_page}")
-                    
-                    # Now that we know it reflects, run ONE targeted Dalfox scan
                     finding = {
-                        "type": "Stored XSS (Mapped)",
-                        "payload": f"Reflects at {check_page}",
+                        "type": "Stored XSS (Verified)",
+                        "payload": f"Canary found at {check_page}",
                         "status": "Vulnerable",
-                        "parameter": "Multiple/Form"
+                        "parameter": "Form-Data"
                     }
-                    self._log_result(finding["type"], finding["payload"], "Vulnerable", "Stored-Path")
-                    stored_findings.append(finding)
-            except:
-                continue
-                
-        return stored_findings
+                    # Log globally and locally
+                    self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
+                    local_stored_findings.append(finding)
+            
+            return local_stored_findings
+        except Exception as e:
+            with print_lock:
+                print(f"[-] Stored custom execution error: {e}")
+            return []
 
-    # Function to coordinate scanning for a specific page
-    def scan_page_workflow(self, page):
+    # Function to coordinate scanning for a specific page - FIXED to pass all_pages context
+    def scan_page_workflow(self, page, all_pages):
         # Starts the sniper tools for Reflected/DOM
         findings = self.launch_dalfox(page)
-        # Runs the native Dalfox sxss check and adds to the total findings for this page
-        stored_findings = self.scan_stored_custom(page)
+        # Runs the native custom stored check and adds to the total findings for this page
+        stored_findings = self.scan_stored_custom(page, all_pages)
         if stored_findings:
             findings.extend(stored_findings)
         return findings
@@ -267,7 +253,7 @@ def get_random_agent():
         # Opens the file
         with open(ua_path, "r") as f:
             # Extracts the user agents as a list
-            user_agents = [ua.strip() for ua in f if ua.strip()]
+            user_agents = [ua.strip() for ua.strip() in f if ua.strip()]
 
     # Returns the headers with a random agent
     return {"User-Agent": random.choice(user_agents)}
@@ -291,7 +277,8 @@ def main():
 
     # 2. Map the site
     print("[*] Starting crawl to map the attack surface...")
-    all_pages = scanner.crawl(url)
+    # We convert the crawl results to a list to ensure stable iteration during scanning
+    all_pages = list(scanner.crawl(url))
     
     # Outputs discovery is complete
     print(f"[*] Discovery complete. Scanning {len(all_pages)} pages with Sniper tools...")
@@ -301,17 +288,21 @@ def main():
 
     # Creates the thread pool executor
     with ThreadPoolExecutor(max_workers=5) as executor:
-        # Maps the workflow to the all_pages list
-        futures = [executor.submit(scanner.scan_page_workflow, page) for page in all_pages]
+        # Maps the workflow to the all_pages list, passing both page and the full all_pages list
+        futures = [executor.submit(scanner.scan_page_workflow, page, all_pages) for page in all_pages]
         
         # Collects results as threads finish
         for future in futures:
-            # Gets the list of findings
-            result = future.result()
-            # Checks if findings exist
-            if result:
-                # Adds findings to the log
-                vulnerability_log.extend(result)
+            try:
+                # Gets the list of findings
+                result = future.result()
+                # Checks if findings exist
+                if result:
+                    # Adds findings to the log
+                    vulnerability_log.extend(result)
+            except Exception as e:
+                with print_lock:
+                    print(f"[-] Thread execution error: {e}")
 
     # Calculates the elapsed time
     elapsed = time.perf_counter() - start_time
