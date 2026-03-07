@@ -23,7 +23,7 @@ class XSSPayloadTester:
     def safe_request(self, method, url, **kwargs):
         try:
             kwargs['headers'] = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'}
-            kwargs['timeout'] = 5
+            kwargs['timeout'] = 10
             return self.session.request(method, url, **kwargs)
         except:
             return None
@@ -52,9 +52,9 @@ class XSSPayloadTester:
             print(f"[*] Phase 1: Launching Nuclei against {target}")
         try:
             command = ["nuclei", "-u", target, "-tags", "xss", "-severity", "medium,high,critical", "-silent", "-jsonl"]
-            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
-                stdout, _ = proc.communicate(timeout=60)
+                stdout, _ = proc.communicate(timeout=120)
                 for line in stdout.splitlines():
                     try:
                         data = json.loads(line)
@@ -67,48 +67,54 @@ class XSSPayloadTester:
         dalfox_path = "/snap/bin/dalfox"
         temp_file = f"tmp_{uuid.uuid4().hex}.json"
         
-        # Optimized command with aggressive timeout flags
+        # Extended timeout to 90s and removed DEVNULL to prevent silent failures
         if mode == "sxss":
-            cmd = f"{dalfox_path} sxss \"{target_url}\" --trigger \"{target_url}\" -X POST --delay 50 --waf-evasion --silence --format json -o {temp_file}"
+            cmd = f"{dalfox_path} sxss \"{target_url}\" --trigger \"{target_url}\" -X POST --delay 100 --waf-evasion --silence --format json -o {temp_file}"
         else:
-            cmd = f"{dalfox_path} url \"{target_url}\" --delay 50 --waf-evasion --silence --no-color --no-spinner --format json -o {temp_file}"
+            cmd = f"{dalfox_path} url \"{target_url}\" --delay 100 --waf-evasion --silence --no-color --no-spinner --format json -o {temp_file}"
             
         try:
-            # Using DEVNULL to prevent pipe clogs and start_new_session to ensure clean kills
-            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            proc = subprocess.Popen(cmd, shell=True, start_new_session=True)
             try:
-                proc.communicate(timeout=45)
+                proc.wait(timeout=90)
             except subprocess.TimeoutExpired:
-                os.killpg(os.getpgid(proc.pid), 15) # Kill the whole process group
+                os.killpg(os.getpgid(proc.pid), 15)
             
+            # Read and parse results
             if os.path.exists(temp_file):
                 if os.path.getsize(temp_file) > 0:
                     with open(temp_file, 'r') as f:
-                        content = f.read().strip()
-                        if content:
+                        lines = f.readlines()
+                        for line in lines:
                             try:
-                                data_list = json.loads(content) if content.startswith('[') else [json.loads(line) for line in content.splitlines()]
-                                for vuln in data_list:
-                                    v_type = "Stored" if mode == "sxss" else f"Dalfox-{vuln.get('type','R')}"
-                                    self._log_result(v_type, vuln.get("poc","N/A"), "Vulnerable", vuln.get("param","unknown"))
-                            except: pass
+                                # Dalfox might output a list or raw JSON objects
+                                content = line.strip().rstrip(',')
+                                if content.startswith('['): content = content[1:]
+                                if content.endswith(']'): content = content[:-1]
+                                if not content: continue
+                                vuln = json.loads(content)
+                                v_type = "Stored" if mode == "sxss" else f"Dalfox-{vuln.get('type','R')}"
+                                self._log_result(v_type, vuln.get("poc","N/A"), "Vulnerable", vuln.get("param","unknown"))
+                            except: continue
                 os.remove(temp_file)
-        except: pass
+        except Exception as e:
+            with print_lock: print(f"[-] Dalfox error on {target_url}: {e}")
 
     def _log_result(self, xss_type, payload, status, param=None):
         if payload and payload != "N/A":
-            finding_sig = f"{xss_type}-{param}" # Simplify signature to find unique params
+            # Using parameter + type to define uniqueness
+            finding_sig = f"{xss_type}-{param}"
             if not any(f"{r['type']}-{r['parameter']}" == finding_sig for r in self.results):
                 self.results.append({"type": xss_type, "payload": payload, "parameter": param})
                 with print_lock:
-                    print(f"[!] {xss_type} FOUND: Param '{param}'")
+                    print(f"[!] {xss_type} FOUND: Parameter '{param}'")
 
     def scan_page_workflow(self, page):
         with print_lock:
             print(f"[*] Scanning: {page}")
         self.run_dalfox_mode(page, mode="url")
-        # Only run stored on pages likely to have forms (guestbook, login, signup)
-        if any(x in page for x in ['guest', 'login', 'sign', 'user', 'post', 'comment']):
+        # Ensure stored XSS is checked on targets with forms
+        if any(x in page.lower() for x in ['guest', 'login', 'signup', 'user', 'contact', 'search']):
             self.run_dalfox_mode(page, mode="sxss")
 
 def main():
@@ -120,14 +126,12 @@ def main():
     print("[*] Phase 2: Mapping site structure...")
     raw_pages = scanner.crawl(url)
     
+    # Improved Deduplication for 10-thread efficiency
     unique_pages = {}
     for p in raw_pages:
         parsed = urlparse(p)
-        # Handle RESTful/Mod_Rewrite paths as unique structures
-        path_parts = parsed.path.strip('/').split('/')
-        structure = "/".join([part if not part.isdigit() else "{id}" for part in path_parts])
         params = tuple(sorted(parse_qs(parsed.query).keys()))
-        sig = (structure, params)
+        sig = (parsed.path, params)
         if sig not in unique_pages: unique_pages[sig] = p
     
     scan_list = list(unique_pages.values())
