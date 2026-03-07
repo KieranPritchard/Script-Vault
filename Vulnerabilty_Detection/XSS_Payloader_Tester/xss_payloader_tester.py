@@ -4,92 +4,73 @@ import subprocess
 import os
 import json
 import shutil
-from urllib.parse import urljoin, urlparse, parse_qs
-from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
-
-print_lock = Lock()
+from urllib.parse import urljoin, urlparse
 
 class XSSPayloadTester:
     def __init__(self, target_url):
         self.target_url = target_url
         self.results = []
-        self.results_lock = Lock()
+        # Try to find dalfox outside of the snap folder first to avoid permission bugs
         self.dalfox_path = shutil.which("dalfox")
+        if self.dalfox_path and "/snap/" in self.dalfox_path:
+            alt_path = "/usr/local/bin/dalfox"
+            if os.path.exists(alt_path):
+                self.dalfox_path = alt_path
+
+    def run_dalfox_fixed(self, target_url):
+        # If no params, append a common test param to force Dalfox to work
+        if "?" not in target_url:
+            target_url += "?id=1&query=test&name=user"
+            print(f"[*] No parameters found. Appending discovery params: {target_url}")
+
+        print(f"[*] Launching Dalfox on: {target_url}")
         
-        if not self.dalfox_path:
-            print("[!] CRITICAL: Dalfox not found in your PATH. Please install it.")
-
-    def run_dalfox_live(self, target_url):
-        """Runs Dalfox and streams output to the console in real-time."""
-        with print_lock:
-            print(f"\n[*] Starting Deep Scan on: {target_url}")
-
-        # Command optimized for maximum discovery and JSON output
-        command = [
-            self.dalfox_path, "url", target_url,
-            "--worker", "10",            # Increase parallel workers
-            "--waf-evasion",             # Try to bypass basic WAFs
-            "--silence",                 # Keep output clean for our parser
-            "--no-color",                # Remove ANSI codes for easier parsing
-            "--format", "json"           # Standardize result format
-        ]
+        # Command setup
+        command = [self.dalfox_path, "url", target_url, "--worker", "5", "--silence", "--no-color", "--format", "json"]
 
         try:
-            # We use bufsize=1 and universal_newlines=True for line-by-line streaming
+            # We check if we're in a snap environment and try to fix the execution
             process = subprocess.Popen(
                 command, 
                 stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT, 
-                text=True, 
-                bufsize=1
+                stderr=subprocess.PIPE, 
+                text=True,
+                env=dict(os.environ, DISABLE_WAYLAND="1") # Sometimes helps snap apps
             )
 
-            # Read output as it comes in
-            for line in iter(process.stdout.readline, ''):
-                clean_line = line.strip()
-                if not clean_line: continue
+            stdout, stderr = process.communicate(timeout=120)
 
-                # Print the raw line so you can see progress
-                with print_lock:
-                    print(f"  [Dalfox Output] {clean_line}")
+            if "snap-confine" in stderr:
+                print("[!] Snap Error Detected. Attempting to run with 'nosnap' flags or local PATH...")
+                # Fallback: Try calling dalfox directly if it exists in a common local bin
+                if os.path.exists("/usr/bin/dalfox"):
+                    command[0] = "/usr/bin/dalfox"
+                    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    stdout, stderr = process.communicate(timeout=120)
 
-                # Try to parse if it's a finding (JSON)
-                if clean_line.startswith('{') and clean_line.endswith('}'):
+            for line in stdout.splitlines():
+                if line.startswith('{'):
                     try:
-                        data = json.loads(clean_line)
-                        self._log_result(
-                            f"Dalfox-{data.get('type', 'R')}", 
-                            data.get("poc"), 
-                            "Vulnerable", 
-                            data.get("param")
-                        )
+                        data = json.loads(line)
+                        print(f"[!] HIT: {data.get('type')} on {data.get('param')}")
+                        self.results.append(data)
                     except: pass
-
-            process.stdout.close()
-            process.wait()
+            
+            if not self.results and not stderr:
+                print("[-] No vulnerabilities found, but tool executed successfully.")
+            elif stderr and not stdout:
+                print(f"[!] Error Output: {stderr.strip()}")
 
         except Exception as e:
-            with print_lock:
-                print(f"[-] Subprocess Error: {e}")
-
-    def _log_result(self, xtype, payload, status, param):
-        sig = f"{xtype}-{param}-{payload}"
-        with self.results_lock:
-            if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == sig for r in self.results):
-                self.results.append({"type": xtype, "payload": payload, "status": status, "parameter": param})
-                with print_lock:
-                    print(f"\n[!!!] HIT FOUND: {xtype} on {param}\nPoC: {payload}\n")
+            print(f"[-] Execution Error: {e}")
 
 def main():
-    target = input("Enter Target (with params, e.g., http://example.com/p.php?id=1): ").strip()
-    if "?" not in target:
-        print("[!] Warning: Dalfox works best on URLs with active parameters.")
-    
+    target = input("Enter Target: ").strip()
     scanner = XSSPayloadTester(target)
-    scanner.run_dalfox_live(target)
-
-    print(f"\n[✓] Scan Finished. Total Unique Hits: {len(scanner.results)}")
+    if not scanner.dalfox_path:
+        print("Please install Dalfox using: 'go install github.com/hahwul/dalfox/v2@latest' to avoid Snap issues.")
+        return
+    scanner.run_dalfox_fixed(target)
 
 if __name__ == "__main__":
     main()
