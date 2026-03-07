@@ -19,12 +19,9 @@ class XSSPayloadTester:
         self.results = []
         self.results_lock = Lock()
         self.target_domain = urlparse(target_url).netloc
-        # Ensure it uses the Go-installed version in /home/user/go/bin
-        self.dalfox_path = shutil.which("dalfox")
-        if not self.dalfox_path:
-            go_bin = os.path.expanduser("~/go/bin/dalfox")
-            if os.path.exists(go_bin):
-                self.dalfox_path = go_bin
+        
+        # Locate binaries
+        self.dalfox_path = shutil.which("dalfox") or os.path.expanduser("~/go/bin/dalfox")
 
     def get_headers(self):
         return {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
@@ -52,12 +49,11 @@ class XSSPayloadTester:
         return visited
 
     def run_dalfox(self, target_url):
-        if not self.dalfox_path or not os.path.exists(self.dalfox_path):
-            return
+        if not os.path.exists(str(self.dalfox_path)): return
 
         scan_url = target_url if "?" in target_url else target_url + "?id=1&q=test"
         
-        # Dalfox commands for Reflected/DOM and Stored XSS
+        # worker set to 5 and added --delay for better accuracy
         commands = [
             [self.dalfox_path, "url", scan_url, "--worker", "5", "--delay", "100", "--waf-evasion", "--silence", "--no-color", "--format", "json"],
             [self.dalfox_path, "sxss", scan_url, "--trigger", scan_url, "--worker", "5", "--delay", "100", "--silence", "--no-color", "--format", "json"]
@@ -65,28 +61,22 @@ class XSSPayloadTester:
 
         for cmd in commands:
             try:
-                # We do not capture stdout=PIPE here so you see the live Dalfox output in the terminal
-                # Instead, we run a second pass or use a temporary file to parse the JSON for the CSV
-                proc = subprocess.Popen(cmd + ["--output", "temp_hit.txt"], stdout=None, stderr=None)
-                proc.communicate(timeout=180)
-                
-                # If Dalfox found something, it will write to temp_hit.txt in JSON format
-                if os.path.exists("temp_hit.txt"):
-                    with open("temp_hit.txt", "r") as f:
-                        for line in f:
-                            try:
-                                data = json.loads(line.strip())
-                                # FIX: Exhaustive search for the actual payload
-                                poc_raw = data.get("poc") or data.get("evidence") or data.get("injection_point") or data.get("url")
-                                poc = unquote(str(poc_raw)) if poc_raw else "Manual Verification Required"
-                                
-                                v_type = f"Dalfox-{data.get('type', 'Unknown')}"
-                                if "sxss" in cmd: v_type = "Stored-XSS"
-                                self._log_result(v_type, poc, "Vulnerable", data.get("param", "url-path"))
-                            except: pass
-                    os.remove("temp_hit.txt")
-            except Exception as e:
-                with print_lock: print(f"[-] Dalfox Error on {target_url}: {e}")
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                stdout, _ = proc.communicate(timeout=180)
+                for line in stdout.splitlines():
+                    clean_line = line.strip().rstrip(',')
+                    if clean_line.startswith('{'):
+                        try:
+                            data = json.loads(clean_line)
+                            # Exhaustive search for the actual payload string
+                            poc_raw = data.get("poc") or data.get("evidence") or data.get("injection_point") or data.get("url")
+                            poc = unquote(str(poc_raw)) if poc_raw else "Manual Verification Required"
+                            
+                            v_type = f"Dalfox-{data.get('type', 'Unknown')}"
+                            if "sxss" in cmd: v_type = "Stored-XSS"
+                            self._log_result(v_type, poc, "Vulnerable", data.get("param", "url-path"))
+                        except: pass
+            except: pass
 
     def _log_result(self, xtype, payload, status, param):
         sig = f"{xtype}-{param}-{payload}"
@@ -112,9 +102,7 @@ class XSSPayloadTester:
 
 def main():
     target = input("Enter Target URL: ").strip()
-    if not target.startswith("http"):
-        print("Invalid URL.")
-        return
+    if not target.startswith("http"): return
     
     start_time = time.perf_counter()
     scanner = XSSPayloadTester(target)
@@ -130,7 +118,8 @@ def main():
     scan_list = list(unique_paths.values())
     print(f"[✓] Found {len(scan_list)} unique targets.")
 
-    print("\n--- PHASE 2: DALFOX SCAN (Reflected + Stored | 5 Threads) ---")
+    print("\n--- PHASE 2: DALFOX SCAN (Stable Mode: 5 Threads) ---")
+    # max_workers reduced to 5 to avoid server overwhelm
     with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(scanner.run_dalfox, scan_list)
 
