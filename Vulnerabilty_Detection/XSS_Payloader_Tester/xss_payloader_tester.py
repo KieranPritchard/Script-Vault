@@ -4,6 +4,7 @@ import random
 import subprocess
 import os
 import json
+import uuid
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs
 from concurrent.futures import ThreadPoolExecutor
@@ -13,16 +14,15 @@ from collections import Counter
 print_lock = Lock()
 
 class XSSPayloadTester:
-    def __init__(self, target_url, payloads):
+    def __init__(self, target_url):
         self.target_url = target_url
-        self.payloads = payloads
         self.session = requests.Session()
         self.results = []
         self.target_domain = urlparse(target_url).netloc
 
     def safe_request(self, method, url, **kwargs):
         try:
-            kwargs['headers'] = get_random_agent()
+            kwargs['headers'] = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'}
             kwargs['timeout'] = 7
             return self.session.request(method, url, **kwargs)
         except:
@@ -32,7 +32,7 @@ class XSSPayloadTester:
         if visited is None: visited = set()
         if url in visited or self.target_domain not in urlparse(url).netloc:
             return visited
-        if any(url.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf', '.jpeg']):
+        if any(url.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf']):
             return visited
         with print_lock:
             print(f"[*] Crawling: {url}")
@@ -52,86 +52,72 @@ class XSSPayloadTester:
             print(f"[*] Phase 1: Launching Nuclei against {target}")
         try:
             command = ["nuclei", "-u", target, "-tags", "xss", "-severity", "medium,high,critical", "-silent", "-jsonl"]
-            # Using communicate() with timeout to prevent hanging
             proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
-                stdout, _ = proc.communicate(timeout=180)
+                stdout, _ = proc.communicate(timeout=120)
                 for line in stdout.splitlines():
                     try:
-                        vuln_data = json.loads(line)
-                        self._log_result(f"Nuclei {vuln_data.get('info',{}).get('severity','').upper()}", vuln_data.get("matched-at"), "Vulnerable", vuln_data.get("matcher-name"))
+                        data = json.loads(line)
+                        self._log_result(f"Nuclei-{data.get('info',{}).get('severity','').upper()}", data.get("matched-at"), "Vulnerable", data.get("matcher-name"))
                     except: continue
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            except: proc.kill()
         except: pass
 
-    def launch_dalfox(self, target_url):
+    def run_dalfox_mode(self, target_url, mode="url"):
         local_findings = []
         dalfox_path = "/snap/bin/dalfox"
-        command = f"{dalfox_path} url \"{target_url}\" --delay 50 --waf-evasion --skip-mining-all --silence --no-color --no-spinner --format json"
+        temp_file = f"tmp_{uuid.uuid4().hex}.json"
+        
+        # Removed --skip-mining-all to ensure parameters are actually tested
+        if mode == "sxss":
+            cmd = f"{dalfox_path} sxss \"{target_url}\" --trigger \"{target_url}\" -X POST --delay 50 --waf-evasion --silence --format json -o {temp_file}"
+        else:
+            cmd = f"{dalfox_path} url \"{target_url}\" --delay 50 --waf-evasion --silence --no-color --no-spinner --format json -o {temp_file}"
+            
         try:
-            proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
-                # Use communicate instead of manual line iteration to prevent deadlocks
-                stdout, _ = proc.communicate(timeout=40)
-                for line in stdout.splitlines():
-                    if not line.strip() or line.strip() in ["[", "]"]: continue
-                    try:
-                        vuln_data = json.loads(line.strip().rstrip(','))
-                        finding = {"type": "Dalfox-"+vuln_data.get("type","R"), "payload": vuln_data.get("poc","N/A"), "status": "Vulnerable", "parameter": vuln_data.get("param","unknown")}
-                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
-                        local_findings.append(finding)
-                    except: continue
+                proc.communicate(timeout=60)
             except subprocess.TimeoutExpired:
                 proc.kill()
-        except: pass
-        return local_findings
-
-    def scan_stored_dalfox(self, page_url):
-        local_findings = []
-        dalfox_path = "/snap/bin/dalfox"
-        command = f"{dalfox_path} sxss \"{page_url}\" --trigger \"{page_url}\" -X POST --delay 50 --skip-mining-all --silence --no-color --format json"
-        try:
-            proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            try:
-                stdout, _ = proc.communicate(timeout=50)
-                for line in stdout.splitlines():
-                    if not line.strip() or line.strip() in ["[", "]"]: continue
-                    try:
-                        vuln_data = json.loads(line.strip().rstrip(','))
-                        finding = {"type": "Stored (Verified)", "payload": vuln_data.get("poc","N/A"), "status": "Vulnerable", "parameter": vuln_data.get("param","unknown")}
-                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
-                        local_findings.append(finding)
-                    except: continue
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            
+            # Read results from the output file even if process was killed
+            if os.path.exists(temp_file):
+                with open(temp_file, 'r') as f:
+                    content = f.read().strip()
+                    if content:
+                        # Dalfox sometimes writes a JSON array or multiple objects
+                        if content.startswith('['):
+                            data_list = json.loads(content)
+                        else:
+                            data_list = [json.loads(line) for line in content.splitlines() if line.strip()]
+                        
+                        for vuln in data_list:
+                            v_type = "Stored" if mode == "sxss" else f"Dalfox-{vuln.get('type','R')}"
+                            self._log_result(v_type, vuln.get("poc","N/A"), "Vulnerable", vuln.get("param","unknown"))
+                os.remove(temp_file)
         except: pass
         return local_findings
 
     def _log_result(self, xss_type, payload, status, param=None):
-        if status == "Vulnerable" and payload and payload != "N/A":
+        if payload and payload != "N/A":
             finding_sig = f"{xss_type}-{param}-{payload}"
             if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == finding_sig for r in self.results):
-                result = {"type": xss_type, "payload": payload, "status": status, "parameter": param}
-                self.results.append(result)
+                self.results.append({"type": xss_type, "payload": payload, "parameter": param})
                 with print_lock:
-                    print(f"[!] {xss_type} FOUND: {param}")
+                    print(f"[!] {xss_type} FOUND: {param} at {payload[:50]}...")
 
     def scan_page_workflow(self, page):
-        findings = self.launch_dalfox(page)
-        stored = self.scan_stored_dalfox(page)
-        if stored: findings.extend(stored)
-        return findings
-
-def get_random_agent():
-    return {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"}
+        self.run_dalfox_mode(page, mode="url")
+        self.run_dalfox_mode(page, mode="sxss")
 
 def main():
     start_time = time.perf_counter() 
     url = input("Enter Target URL: ").strip()
-    scanner = XSSPayloadTester(url, [])
+    scanner = XSSPayloadTester(url)
     scanner.run_nuclei_discovery(url)
-    print("[*] Mapping site structure...")
+    
+    print("[*] Phase 2: Mapping site structure...")
     raw_pages = scanner.crawl(url)
     
     unique_pages = {}
@@ -139,30 +125,26 @@ def main():
         parsed = urlparse(p)
         params = tuple(sorted(parse_qs(parsed.query).keys()))
         sig = (parsed.path, params)
-        if sig not in unique_pages:
-            unique_pages[sig] = p
+        if sig not in unique_pages: unique_pages[sig] = p
     
     scan_list = list(unique_pages.values())
-    print(f"[*] Deduplicated {len(raw_pages)} down to {len(scan_list)} unique targets.")
+    print(f"[*] Deduplicated to {len(scan_list)} targets. Scanning with 10 threads...")
 
-    vulnerability_log = []
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(scanner.scan_page_workflow, page): page for page in scan_list}
-        for future in futures:
-            try:
-                res = future.result()
-                if res: vulnerability_log.extend(res)
-            except: continue
+        executor.map(scanner.scan_page_workflow, scan_list)
 
     elapsed = time.perf_counter() - start_time
-    print(f"\n[✓] Finished in {elapsed:.2f} seconds. Found {len(vulnerability_log)} hits.")
+    print(f"\n[✓] Finished in {elapsed:.2f} seconds. Total unique hits: {len(scanner.results)}")
 
-    if vulnerability_log:
-        counts = Counter(v['type'] for v in vulnerability_log)
+    if scanner.results:
+        counts = Counter(r['type'] for r in scanner.results)
         print("\n" + "="*40)
         for v_type, count in counts.items():
             print(f"{v_type:<30} | {count:>5}")
         print("="*40)
+        with open("xss_scan_results.txt", "w") as f:
+            for r in scanner.results:
+                f.write(f"Type: {r['type']} | Param: {r['parameter']} | POC: {r['payload']}\n")
 
 if __name__ == "__main__":
     main()
