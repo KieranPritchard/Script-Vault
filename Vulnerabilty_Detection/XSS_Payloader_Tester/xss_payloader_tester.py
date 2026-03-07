@@ -91,7 +91,7 @@ class XSSPayloadTester:
                     severity = info.get("severity", "unknown").upper()
                     self._log_result(f"Nuclei {severity}", vuln_data.get("matched-at", "N/A"), "Vulnerable", vuln_data.get("matcher-name", "URL"))
                 except: continue
-            process.wait()
+            process.wait(timeout=300) # Ensure Nuclei doesn't hang forever
         except Exception as e:
             with print_lock: print(f"[-] Nuclei error: {e}")
 
@@ -101,23 +101,26 @@ class XSSPayloadTester:
         with print_lock:
             print(f"[*] Phase 3: Sniper Mode - Dalfox analyzing {target_url}")
         dalfox_path = "/snap/bin/dalfox"
-        # --delay 100 and --waf-evasion added for automated stability/bypass
-        command = f"{dalfox_path} url {target_url} --delay 100 --waf-evasion --silence --no-color --no-spinner --format json"
+        # Optimized flags to prevent hanging
+        command = f"{dalfox_path} url {target_url} --delay 100 --waf-evasion --skip-mining-all --silence --no-color --no-spinner --format json"
         type_map = {"V": "Verified (DOM-based)", "R": "Reflected", "S": "Stored", "G": "Grep (Potential)"}
         
         try:
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            for line in iter(process.stdout.readline, ''):
-                line = line.strip()
-                if not line or line in ["[", "]"]: continue
-                try:
-                    vuln_data = json.loads(line.rstrip(','))
-                    readable_type = type_map.get(vuln_data.get("type", "R"), "XSS")
-                    finding = {"type": readable_type, "payload": vuln_data.get("poc", "N/A"), "status": "Vulnerable", "parameter": vuln_data.get("param", "unknown")}
-                    self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
-                    local_findings.append(finding)
-                except: continue
-            process.wait()
+            try:
+                for line in iter(process.stdout.readline, ''):
+                    line = line.strip()
+                    if not line or line in ["[", "]"]: continue
+                    try:
+                        vuln_data = json.loads(line.rstrip(','))
+                        readable_type = type_map.get(vuln_data.get("type", "R"), "XSS")
+                        finding = {"type": readable_type, "payload": vuln_data.get("poc", "N/A"), "status": "Vulnerable", "parameter": vuln_data.get("param", "unknown")}
+                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
+                        local_findings.append(finding)
+                    except: continue
+                process.wait(timeout=60) # Kill process if it takes longer than 60s per page
+            except subprocess.TimeoutExpired:
+                process.kill()
         except: pass
         return local_findings
 
@@ -127,20 +130,23 @@ class XSSPayloadTester:
         with print_lock:
             print(f"[*] Phase 4: Stored XSS Mode - Dalfox sxss on {page_url}")
         dalfox_path = "/snap/bin/dalfox"
-        # Dalfox handles the POST injection and GET verification automatically
-        command = f"{dalfox_path} sxss {page_url} --trigger {page_url} -X POST --delay 100 --waf-evasion --silence --no-color --format json"
+        # Added --skip-mining-all to stop Dalfox from getting stuck in deep parameter analysis
+        command = f"{dalfox_path} sxss {page_url} --trigger {page_url} -X POST --delay 100 --waf-evasion --skip-mining-all --silence --no-color --format json"
         try:
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            for line in iter(process.stdout.readline, ''):
-                line = line.strip()
-                if not line or line in ["[", "]"]: continue
-                try:
-                    vuln_data = json.loads(line.rstrip(','))
-                    finding = {"type": "Stored (Verified)", "payload": vuln_data.get("poc", "N/A"), "status": "Vulnerable", "parameter": vuln_data.get("param", "unknown")}
-                    self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
-                    local_findings.append(finding)
-                except: continue
-            process.wait()
+            try:
+                for line in iter(process.stdout.readline, ''):
+                    line = line.strip()
+                    if not line or line in ["[", "]"]: continue
+                    try:
+                        vuln_data = json.loads(line.rstrip(','))
+                        finding = {"type": "Stored (Verified)", "payload": vuln_data.get("poc", "N/A"), "status": "Vulnerable", "parameter": vuln_data.get("param", "unknown")}
+                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
+                        local_findings.append(finding)
+                    except: continue
+                process.wait(timeout=90) # sxss takes longer, giving it 90s
+            except subprocess.TimeoutExpired:
+                process.kill()
         except: pass
         return local_findings
 
@@ -195,12 +201,14 @@ def main():
     print(f"[*] Discovery complete. Scanning {len(all_pages)} pages with 5 threads...")
 
     vulnerability_log = []
-    # Using 5 threads as requested
+    # Using 5 threads
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = [executor.submit(scanner.scan_page_workflow, page) for page in all_pages]
         for future in futures:
-            res = future.result()
-            if res: vulnerability_log.extend(res)
+            try:
+                res = future.result()
+                if res: vulnerability_log.extend(res)
+            except: continue
 
     elapsed = time.perf_counter() - start_time
     print(f"\n[✓] Finished in {elapsed:.2f} seconds")
