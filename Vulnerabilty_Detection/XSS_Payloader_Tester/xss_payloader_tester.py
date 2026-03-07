@@ -157,41 +157,59 @@ class XSSPayloadTester:
                 print(f"[-] Dalfox execution error: {e}")
             return []
 
-    # Method to scan the stored xss logic
+    # Method to scan stored xss using Dalfox's native sxss mode
     def scan_stored_custom(self, page_url):
-        # Tries to find forms on the page
+        # We use the current page as both the target and the trigger for verification
+        # In a more advanced version, you could differentiate these based on form action
+        with print_lock:
+            print(f"[*] Phase 4: Stored XSS Mode - Dalfox testing {page_url}")
+        
+        dalfox_path = "/snap/bin/dalfox"
+        # sxss mode: -X POST specifies the submission method, --trigger specifies where to check for the payload
+        command = f"{dalfox_path} sxss {page_url} --trigger {page_url} -X POST --silence --no-color --no-spinner --format json"
+        
+        local_stored_findings = []
         try:
-            res = self.session.get(page_url, headers=get_random_agent(), timeout=5)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            # Loops over forms found
-            for form in soup.find_all("form", method="post"):
-                action = urljoin(page_url, form.get("action"))
-                # Loops over inputs in the form
-                for input_tag in form.find_all(["input", "textarea"]):
-                    name = input_tag.get("name")
-                    if name:
-                        # Uses a simple payload for custom stored check
-                        payload = self.payloads[0] if self.payloads else "<script>alert(1)</script>"
-                        
-                        # Post the payload to the form
-                        self.session.post(action, data={name: payload}, headers=get_random_agent(), timeout=5)
-                        
-                        # Wait briefly for the server to process/store the data
-                        self.jitter()
-                        
-                        # Re-visits the page to check if the payload is now rendered in the HTML
-                        check_res = self.session.get(page_url, headers=get_random_agent(), timeout=5)
-                        if payload in check_res.text:
-                            # Log the stored vulnerability with the updated readable format
-                            self._log_result(
-                                xss_type="Stored XSS (Custom)",
-                                payload=payload,
-                                status="Vulnerable",
-                                param=name
-                            )
+            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            
+            for line in iter(process.stdout.readline, ''):
+                line = line.strip()
+                if not line or line in ["[", "]"]: continue
+                clean_line = line.rstrip(',').rstrip(']')
+                
+                try:
+                    vuln_data = json.loads(clean_line)
+                    payload = vuln_data.get("poc") or vuln_data.get("data") or "N/A"
+                    
+                    if payload != "N/A":
+                        finding = {
+                            "type": "Stored XSS (Verified)",
+                            "payload": payload,
+                            "status": "Vulnerable",
+                            "parameter": vuln_data.get("param", "unknown")
+                        }
+                        # Log globally and locally
+                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
+                        local_stored_findings.append(finding)
+                except json.JSONDecodeError:
+                    continue
+            
+            process.wait()
+            return local_stored_findings
         except Exception as e:
-            # Silently fail for individual pages but keep the scan moving
-            pass
+            with print_lock:
+                print(f"[-] Dalfox sxss execution error: {e}")
+            return []
+
+    # Function to coordinate scanning for a specific page
+    def scan_page_workflow(self, page):
+        # Starts the sniper tools for Reflected/DOM
+        findings = self.launch_dalfox(page)
+        # Runs the native Dalfox sxss check and adds to the total findings for this page
+        stored_findings = self.scan_stored_custom(page)
+        if stored_findings:
+            findings.extend(stored_findings)
+        return findings
 
     # Method to log the result
     def _log_result(self, xss_type, payload, status, param=None):
@@ -208,13 +226,6 @@ class XSSPayloadTester:
                 with print_lock:
                     # Outputs the found vulnerability
                     print(f"[!] {xss_type} XSS FOUND: {payload} in parameter: {param}")
-
-    # Function to coordinate scanning for a specific page
-    def scan_page_workflow(self, page):
-        # Starts the sniper tools
-        findings = self.launch_dalfox(page)
-        self.scan_stored_custom(page)
-        return findings
 
 # Function to load the payloads
 def load_payloads():
