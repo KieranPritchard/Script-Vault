@@ -65,7 +65,7 @@ class XSSPayloadTester:
         try:
             # -jsonl allows us to parse each finding as a dictionary
             # -severity medium,high,critical filters out the 'info' noise
-            command = ["nuclei", "-u", target, "-tags", "xss", "-severity", "medium,high,critical", "-silent", "-jsonl"]
+            command = ["nuclei", "-u", target, "-tags", "xss", "-silent", "-jsonl"]
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             
             for line in iter(process.stdout.readline, ''):
@@ -172,12 +172,26 @@ class XSSPayloadTester:
                     if name:
                         # Uses a simple payload for custom stored check
                         payload = self.payloads[0] if self.payloads else "<script>alert(1)</script>"
-                        self.session.post(action, data={name: payload}, headers=get_random_agent())
-                        # Re-visits the page to check for reflection
-                        check_res = self.session.get(page_url, headers=get_random_agent())
+                        
+                        # Post the payload to the form
+                        self.session.post(action, data={name: payload}, headers=get_random_agent(), timeout=5)
+                        
+                        # Wait briefly for the server to process/store the data
+                        self.jitter()
+                        
+                        # Re-visits the page to check if the payload is now rendered in the HTML
+                        check_res = self.session.get(page_url, headers=get_random_agent(), timeout=5)
                         if payload in check_res.text:
-                            self._log_result("Stored", payload, "Vulnerable", name)
-        except: pass
+                            # Log the stored vulnerability with the updated readable format
+                            self._log_result(
+                                xss_type="Stored XSS (Custom)",
+                                payload=payload,
+                                status="Vulnerable",
+                                param=name
+                            )
+        except Exception as e:
+            # Silently fail for individual pages but keep the scan moving
+            pass
 
     # Method to log the result
     def _log_result(self, xss_type, payload, status, param=None):
