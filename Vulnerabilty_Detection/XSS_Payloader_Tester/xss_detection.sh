@@ -15,7 +15,6 @@ echo "type,parameter,payload,status" > "$RESULTS_CSV"
 START_TIME=$(date +%s)
 
 echo -e "\n--- PHASE 1: CRAWLING ---"
-# Discovery phase
 if ! command -v hakrawler &> /dev/null; then
     URLS=$(curl -s "$TARGET" | grep -oP 'href="\K[^"]+' | sed "s|^/|$TARGET/|")
 else
@@ -23,36 +22,28 @@ else
 fi
 
 UNIQUE_URLS=$(echo "$URLS" | sort -u)
-echo "[✓] Found $(echo "$UNIQUE_URLS" | wc -l) unique targets."
+echo "$UNIQUE_URLS" > targets.txt
+echo "[✓] Found $(wc -l < targets.txt) unique targets."
 
-echo -e "\n--- PHASE 2: NUCLEI SCAN (LIVE OUTPUT) ---"
-# Removed -silent to let you see the templates being loaded and matched
-nuclei -u "$TARGET" -tags xss -severity low,medium,high,critical -rl 10 | tee -a nuclei_live.txt
+echo -e "\n--- PHASE 2: HIGH-SPEED NUCLEI SCAN ---"
+# -c: templates to run in parallel | -bs: hosts to scan in parallel | -rl: total requests per second
+nuclei -l targets.txt -tags xss -severity low,medium,high,critical -c 50 -bs 10 -rl 100 | tee -a nuclei_live.txt
 
-# Parse the live output into the CSV after the run
+# Extract hits for CSV
 grep "\[" nuclei_live.txt | awk '{print "Nuclei," $4 "," $6 ",Vulnerable"}' >> "$RESULTS_CSV"
-rm nuclei_live.txt
 
-echo -e "\n--- PHASE 3: DALFOX SCAN (5 THREADS - LIVE OUTPUT) ---"
-# Parallel execution showing live terminal output for each URL
-echo "$UNIQUE_URLS" | xargs -I % -P 5 bash -c "
+echo -e "\n--- PHASE 3: DALFOX SCAN (5 THREADS) ---"
+cat targets.txt | xargs -I % -P 5 bash -c "
     URL='%'
     echo -e '\n[!] Testing: '\$URL
-    
-    # Add parameters if missing
     [[ \$URL != *'?'* ]] && URL=\"\$URL?id=1&q=test\"
-    
-    # Run Dalfox without --silence to see all real-time feedback
-    # We use a temporary file per process to avoid terminal scrambling
     dalfox url \"\$URL\" --worker 5 --delay 100 --waf-evasion --no-color | tee dalfox_temp.txt
-    
-    # Extract hits for the CSV
     grep 'POC' dalfox_temp.txt >> \"$RESULTS_CSV\"
     rm dalfox_temp.txt
 "
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
+rm targets.txt nuclei_live.txt
 
-echo -e "\n--- SCAN SUMMARY ---"
-echo
+echo -e "\n[✓] Scan Complete in $ELAPSED seconds."
