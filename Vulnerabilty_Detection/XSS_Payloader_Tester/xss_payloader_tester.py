@@ -5,13 +5,13 @@ import uuid
 import subprocess
 import requests
 import time
+from datetime import datetime
 from urllib.parse import urljoin, urlparse, parse_qs
 from bs4 import BeautifulSoup
-from collections import Counter
 
 # --- Configuration & State ---
 CONCURRENCY_LIMIT = 10
-SCAN_TIMEOUT = 60 
+SCAN_TIMEOUT = 90  # Slightly increased to ensure thoroughness
 
 TYPE_MAP = {
     "R": "Reflected XSS",
@@ -46,6 +46,7 @@ class XSSOrchestrator:
         dalfox_path = "/snap/bin/dalfox" 
         cmd = [dalfox_path, "url", target_url, "--silence", "--no-color", "--format", "json", "-o", output_file]
         
+        results = []
         try:
             if not os.path.exists(dalfox_path):
                 return []
@@ -62,31 +63,42 @@ class XSSOrchestrator:
                 with open(output_file, 'r') as f:
                     data = f.read().strip()
                     try:
-                        return json.loads(data) if data.startswith('[') else [json.loads(l) for l in data.splitlines()]
-                    except: return []
+                        results = json.loads(data) if data.startswith('[') else [json.loads(l) for l in data.splitlines()]
+                    except: pass
         except: pass
         finally:
-            if os.path.exists(output_file): os.remove(output_file)
-        return []
+            if os.path.exists(output_file):
+                os.remove(output_file)
+        return results
 
     async def worker(self, url):
         async with self.semaphore:
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(None, self.run_dalfox, url)
+            
             for r in results:
                 raw_type = r.get('type', 'R')
                 readable_type = TYPE_MAP.get(raw_type, f"Unknown ({raw_type})")
-                finding = {"type": readable_type, "param": r.get('param'), "url": url, "payload": r.get('poc', 'N/A')}
+                
+                finding = {
+                    "type": readable_type, 
+                    "param": r.get('param'), 
+                    "url": url, 
+                    "poc": r.get('poc', 'N/A')
+                }
+                
+                # Deduplication logic
                 if not any(f['type'] == finding['type'] and f['param'] == finding['param'] and f['url'] == finding['url'] for f in self.findings):
                     self.findings.append(finding)
-                    print(f"[!] {readable_type} FOUND: Parameter '{r.get('param')}' at {url}")
+                    print(f"[!] {readable_type} FOUND: Parameter '{finding['param']}' at {url}")
 
     async def run(self):
         start_time = time.perf_counter()
-        print(f"[*] Starting Rebuilt Orchestrator against {self.base_url}")
+        print(f"[*] Mapping {self.base_url}...")
         
         to_crawl = [self.base_url]
         unique_targets = set()
+        
         while to_crawl:
             current = to_crawl.pop(0)
             new_links = await self.fetch_links(current)
@@ -98,26 +110,55 @@ class XSSOrchestrator:
                     await self.queue.put(link)
                     to_crawl.append(link)
 
-        print(f"[*] Discovery complete. Processing {self.queue.qsize()} unique structures...")
-        tasks = [asyncio.create_task(self.worker(await self.queue.get())) for _ in range(self.queue.qsize())]
-        if tasks: await asyncio.gather(*tasks)
+        print(f"[*] Starting scan on {self.queue.qsize()} targets...")
+
+        tasks = []
+        while not self.queue.empty():
+            url = await self.queue.get()
+            tasks.append(asyncio.create_task(self.worker(url)))
+        
+        if tasks:
+            await asyncio.gather(*tasks)
         
         elapsed = time.perf_counter() - start_time
-        print(f"\n[✓] Finished in {elapsed:.2f} seconds.")
+        self.generate_report(elapsed)
 
-        if self.findings:
-            counts = Counter(f['type'] for f in self.findings)
-            print("\n" + "="*40)
-            print(f"{'XSS VULNERABILITY SUMMARY':^40}")
-            print("="*40)
-            for v_type, count in counts.items():
-                print(f"{v_type:<30} | {count:>5}")
-            print("="*40)
+    def generate_report(self, elapsed):
+        if not self.findings:
+            print(f"\n[-] Scan finished in {elapsed:.2f}s. No XSS found.")
+            return
 
-            with open("xss_scan_results.txt", "w") as f:
-                f.write(f"SCAN REPORT FOR {self.base_url}\n")
-                f.write(f"Duration: {elapsed:.2f} seconds\n")
-                f.write("-" * 40 + "\n")
-                for f_item in self.findings:
-                    f.write(f"Type: {f_item['type']} | Param: {f_item['param']} | URL: {f_item['url']} | Payload: {f_item['payload']}\n")
-            print("[+] Results saved to xss_scan_results.txt")
+        print(f"\n[✓] Scan finished in {elapsed:.2f}s. Total Hits: {len(self.findings)}")
+        
+        # Summary Table for Console
+        from collections import Counter
+        counts = Counter(f['type'] for f in self.findings)
+        print("\n" + "="*45)
+        print(f"{'XSS TYPE':<30} | {'COUNT':>10}")
+        print("-" * 45)
+        for t, c in counts.items():
+            print(f"{t:<30} | {c:>10}")
+        print("="*45)
+
+        # File Export
+        filename = "xss_orchestrator_results.txt"
+        with open(filename, "w") as f:
+            f.write(f"XSS SCAN REPORT - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Target: {self.base_url}\n")
+            f.write(f"Duration: {elapsed:.2f} seconds\n")
+            f.write("-" * 60 + "\n")
+            for t, c in counts.items():
+                f.write(f"{t}: {c}\n")
+            f.write("-" * 60 + "\n\n")
+            for res in self.findings:
+                f.write(f"Type: {res['type']}\nURL: {res['url']}\nParam: {res['param']}\nPOC: {res['poc']}\n")
+                f.write("." * 30 + "\n")
+        
+        print(f"[+] Detailed results saved to {filename}")
+
+if __name__ == "__main__":
+    target = input("Enter Target URL: ").strip()
+    if not target.startswith("http"):
+        target = "http://" + target
+    orchestrator = XSSOrchestrator(target)
+    asyncio.run(orchestrator.run())
