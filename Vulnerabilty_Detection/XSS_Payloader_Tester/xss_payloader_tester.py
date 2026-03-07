@@ -1,114 +1,94 @@
 import asyncio
 import json
 import os
+import csv
 import uuid
 import subprocess
-import requests
 from urllib.parse import urljoin, urlparse, parse_qs
+import requests
 from bs4 import BeautifulSoup
 
-# --- Configuration & State ---
-CONCURRENCY_LIMIT = 5 
-SCAN_TIMEOUT = 120  
-MAX_DEPTH = 3
+# --- Configuration ---
+CONCURRENCY_LIMIT = 5
+SCAN_TIMEOUT = 120 
+URL_FILE = "discovered_urls.txt"
+RESULTS_CSV = "results.csv"
 
-class XSSOrchestrator:
+class SecurityOrchestrator:
     def __init__(self, base_url):
         self.base_url = base_url
         self.domain = urlparse(base_url).netloc
         self.visited = set()
-        self.findings = []
+        self.queue = asyncio.Queue()
         self.semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+        
+        # Initialize files
+        with open(URL_FILE, "w") as f: f.write("")
+        with open(RESULTS_CSV, "w", newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Tool", "Type", "Severity", "Target", "Param/Info"])
 
-    async def fetch_links(self, url, depth):
-        if depth > MAX_DEPTH or url in self.visited or self.domain not in urlparse(url).netloc:
-            return []
+    async def crawl(self, url):
+        if url in self.visited or self.domain not in urlparse(url).netloc:
+            return
         self.visited.add(url)
+        with open(URL_FILE, "a") as f: f.write(url + "\n")
+        
         try:
-            res = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+            res = requests.get(url, timeout=5, headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
             soup = BeautifulSoup(res.text, 'html.parser')
-            links = []
             for a in soup.find_all('a', href=True):
-                full_url = urljoin(url, a['href']).split('#')[0].rstrip('/')
-                if self.domain in urlparse(full_url).netloc:
-                    links.append(full_url)
-            return list(set(links))
-        except Exception as e:
-            return []
+                link = urljoin(url, a['href']).split('#')[0]
+                if self.domain in urlparse(link).netloc:
+                    await self.crawl(link)
+        except Exception: pass
 
-    def run_tool(self, cmd, output_file):
-        """Generic runner for CLI tools."""
+    def run_tool(self, cmd, tool_name):
+        """Executes a CLI tool and returns the output."""
         try:
-            subprocess.run(cmd, capture_output=True, timeout=SCAN_TIMEOUT)
-            results = []
-            if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
-                with open(output_file, 'r') as f:
-                    for line in f:
-                        if line.strip():
-                            results.append(json.loads(line))
-            return results
-        except Exception:
-            return []
-        finally:
-            if os.path.exists(output_file):
-                os.remove(output_file)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=SCAN_TIMEOUT)
+            return result.stdout
+        except Exception as e:
+            return ""
+
+    def log_to_csv(self, tool, v_type, severity, target, extra):
+        with open(RESULTS_CSV, "a", newline='') as f:
+            csv.writer(f).writerow([tool, v_type, severity, target, extra])
 
     async def worker(self, url):
         async with self.semaphore:
             print(f"[*] Scanning: {url}")
             loop = asyncio.get_event_loop()
-            
-            dalfox_out = f"df_{uuid.uuid4().hex}.json"
-            nuclei_out = f"nc_{uuid.uuid4().hex}.json"
 
-            # 1. DalFox: Best for reflected XSS in params
-            df_cmd = ["dalfox", "url", url, "--silence", "--format", "json", "-o", dalfox_out]
-            # 2. Nuclei: Best for template-based XSS/Common Vulns
-            nc_cmd = ["nuclei", "-u", url, "-silent", "-jsonl", "-o", nuclei_out, "-tags", "xss"]
+            # 1. Run DalFox
+            df_out = await loop.run_in_executor(None, self.run_tool, 
+                ["dalfox", "url", url, "--format", "json", "--silence", "--no-color"], "DalFox")
+            for line in df_out.splitlines():
+                try:
+                    data = json.loads(line)
+                    self.log_to_csv("DalFox", data.get("type"), "Medium", url, data.get("param"))
+                except: pass
 
-            # Run both tools in parallel for the current URL
-            df_task = loop.run_in_executor(None, self.run_tool, df_cmd, dalfox_out)
-            nc_task = loop.run_in_executor(None, self.run_tool, nc_cmd, nuclei_out)
-            
-            df_results, nc_results = await asyncio.gather(df_task, nc_task)
-
-            for r in df_results:
-                msg = f"[!] DALFOX: {r.get('type')} on {r.get('param')} -> {url}"
-                if msg not in self.findings:
-                    self.findings.append(msg); print(msg)
-
-            for r in nc_results:
-                msg = f"[!] NUCLEI: {r.get('info', {}).get('name')} -> {url}"
-                if msg not in self.findings:
-                    self.findings.append(msg); print(msg)
+            # 2. Run Nuclei (using specific XSS/Generic templates for speed)
+            nu_out = await loop.run_in_executor(None, self.run_tool, 
+                ["nuclei", "-u", url, "-jsonl", "-silent", "-nc"], "Nuclei")
+            for line in nu_out.splitlines():
+                try:
+                    data = json.loads(line)
+                    self.log_to_csv("Nuclei", data.get("info", {}).get("name"), 
+                                   data.get("info", {}).get("severity"), url, data.get("template-id"))
+                except: pass
 
     async def run(self):
-        print(f"[*] Launching Orchestrator: {self.base_url}")
-        queue = [self.base_url]
-        unique_targets = set()
-        scan_tasks = []
-
-        depth = 0
-        while queue and depth <= MAX_DEPTH:
-            current_batch = queue[:]
-            queue.clear()
-            for url in current_batch:
-                # Deduplication by path and param keys
-                p = urlparse(url)
-                sig = (p.path, tuple(sorted(parse_qs(p.query).keys())))
-                if sig not in unique_targets:
-                    unique_targets.add(sig)
-                    scan_tasks.append(asyncio.create_task(self.worker(url)))
-                    
-                    new_links = await self.fetch_links(url, depth)
-                    queue.extend(new_links)
-            depth += 1
-
-        if scan_tasks:
-            await asyncio.gather(*scan_tasks)
-        print(f"\n[✓] Finished. Total Findings: {len(self.findings)}")
+        print(f"[*] Phase 1: Crawling {self.base_url}")
+        await self.crawl(self.base_url)
+        
+        print(f"[*] Phase 2: Scanning {len(self.visited)} URLs with DalFox & Nuclei")
+        tasks = [asyncio.create_task(self.worker(u)) for u in self.visited]
+        await asyncio.gather(*tasks)
+        print(f"\n[✓] Done. URLs saved to {URL_FILE}. Results saved to {RESULTS_CSV}")
 
 if __name__ == "__main__":
-    target = input("Enter Target URL (with http/https): ").strip()
-    if target:
-        asyncio.run(XSSOrchestrator(target).run())
+    target = input("Enter Target URL (e.g., http://testphp.vulnweb.com): ").strip()
+    orchestrator = SecurityOrchestrator(target)
+    asyncio.run(orchestrator.run())
