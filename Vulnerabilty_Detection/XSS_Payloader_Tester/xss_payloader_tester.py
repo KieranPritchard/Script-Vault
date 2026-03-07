@@ -4,14 +4,15 @@ import os
 import uuid
 import subprocess
 import requests
+import time
 from urllib.parse import urljoin, urlparse, parse_qs
 from bs4 import BeautifulSoup
+from collections import Counter
 
 # --- Configuration & State ---
 CONCURRENCY_LIMIT = 10
 SCAN_TIMEOUT = 60 
 
-# Map Dalfox shorthand types to readable labels
 TYPE_MAP = {
     "R": "Reflected XSS",
     "S": "Stored XSS",
@@ -47,7 +48,6 @@ class XSSOrchestrator:
         
         try:
             if not os.path.exists(dalfox_path):
-                print(f"[-] Error: Dalfox not found at {dalfox_path}")
                 return []
 
             proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -62,37 +62,31 @@ class XSSOrchestrator:
                 with open(output_file, 'r') as f:
                     data = f.read().strip()
                     try:
-                        results = json.loads(data) if data.startswith('[') else [json.loads(l) for l in data.splitlines()]
-                        return results
+                        return json.loads(data) if data.startswith('[') else [json.loads(l) for l in data.splitlines()]
                     except: return []
-        except Exception as e:
-            print(f"[-] Subprocess error: {e}")
+        except: pass
         finally:
             if os.path.exists(output_file): os.remove(output_file)
         return []
 
     async def worker(self, url):
         async with self.semaphore:
-            print(f"[*] Analyzing: {url}")
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(None, self.run_dalfox, url)
-            
             for r in results:
-                # Resolve the shorthand type to a readable name
                 raw_type = r.get('type', 'R')
                 readable_type = TYPE_MAP.get(raw_type, f"Unknown ({raw_type})")
-                
-                finding = {"type": readable_type, "param": r.get('param'), "url": url}
-                if finding not in self.findings:
+                finding = {"type": readable_type, "param": r.get('param'), "url": url, "payload": r.get('poc', 'N/A')}
+                if not any(f['type'] == finding['type'] and f['param'] == finding['param'] and f['url'] == finding['url'] for f in self.findings):
                     self.findings.append(finding)
                     print(f"[!] {readable_type} FOUND: Parameter '{r.get('param')}' at {url}")
 
     async def run(self):
+        start_time = time.perf_counter()
         print(f"[*] Starting Rebuilt Orchestrator against {self.base_url}")
         
         to_crawl = [self.base_url]
         unique_targets = set()
-        
         while to_crawl:
             current = to_crawl.pop(0)
             new_links = await self.fetch_links(current)
@@ -105,20 +99,25 @@ class XSSOrchestrator:
                     to_crawl.append(link)
 
         print(f"[*] Discovery complete. Processing {self.queue.qsize()} unique structures...")
-
-        tasks = []
-        while not self.queue.empty():
-            url = await self.queue.get()
-            tasks.append(asyncio.create_task(self.worker(url)))
+        tasks = [asyncio.create_task(self.worker(await self.queue.get())) for _ in range(self.queue.qsize())]
+        if tasks: await asyncio.gather(*tasks)
         
-        if tasks:
-            await asyncio.gather(*tasks)
-        
-        print(f"\n[✓] Scan Complete. Total unique hits: {len(self.findings)}")
+        elapsed = time.perf_counter() - start_time
+        print(f"\n[✓] Finished in {elapsed:.2f} seconds.")
 
-if __name__ == "__main__":
-    target_input = input("Enter Target URL: ").strip()
-    if not target_input.startswith("http"):
-        target_input = "http://" + target_input
-    orchestrator = XSSOrchestrator(target_input)
-    asyncio.run(orchestrator.run())
+        if self.findings:
+            counts = Counter(f['type'] for f in self.findings)
+            print("\n" + "="*40)
+            print(f"{'XSS VULNERABILITY SUMMARY':^40}")
+            print("="*40)
+            for v_type, count in counts.items():
+                print(f"{v_type:<30} | {count:>5}")
+            print("="*40)
+
+            with open("xss_scan_results.txt", "w") as f:
+                f.write(f"SCAN REPORT FOR {self.base_url}\n")
+                f.write(f"Duration: {elapsed:.2f} seconds\n")
+                f.write("-" * 40 + "\n")
+                for f_item in self.findings:
+                    f.write(f"Type: {f_item['type']} | Param: {f_item['param']} | URL: {f_item['url']} | Payload: {f_item['payload']}\n")
+            print("[+] Results saved to xss_scan_results.txt")
