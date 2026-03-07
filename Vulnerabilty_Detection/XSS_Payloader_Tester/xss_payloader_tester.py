@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs, quote
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+import uuid
 
 # A Lock prevents threads from printing over each other
 print_lock = Lock()
@@ -157,49 +158,64 @@ class XSSPayloadTester:
                 print(f"[-] Dalfox execution error: {e}")
             return []
 
-    # Method to scan stored xss using Dalfox's native sxss mode
-    def scan_stored_custom(self, page_url):
-        # We use the current page as both the target and the trigger for verification
-        # In a more advanced version, you could differentiate these based on form action
+    def scan_stored_custom(self, page_url, all_pages):
+        """
+        Improved Stored XSS logic: 
+        1. Injects a unique 'Canary' into the current page.
+        2. Checks ALL other discovered pages to see if the Canary appears.
+        """
+        canary_id = f"STORED_CHECK_{uuid.uuid4().hex[:4]}"
         with print_lock:
-            print(f"[*] Phase 4: Stored XSS Mode - Dalfox testing {page_url}")
-        
-        dalfox_path = "/snap/bin/dalfox"
-        # sxss mode: -X POST specifies the submission method, --trigger specifies where to check for the payload
-        command = f"{dalfox_path} sxss {page_url} --trigger {page_url} -X POST --silence --no-color --no-spinner --format json"
-        
-        local_stored_findings = []
+            print(f"[*] Phase 4: Stored Mapping - Injecting canary {canary_id} into {page_url}")
+
+        # Step 1: Attempt to plant the canary in any forms found on the page
         try:
-            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            res = self.session.get(page_url, timeout=5)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            forms = soup.find_all('form')
             
-            for line in iter(process.stdout.readline, ''):
-                line = line.strip()
-                if not line or line in ["[", "]"]: continue
-                clean_line = line.rstrip(',').rstrip(']')
+            for form in forms:
+                action = urljoin(page_url, form.get('action'))
+                method = form.get('method', 'get').lower()
+                inputs = form.find_all(['input', 'textarea'])
                 
-                try:
-                    vuln_data = json.loads(clean_line)
-                    payload = vuln_data.get("poc") or vuln_data.get("data") or "N/A"
-                    
-                    if payload != "N/A":
-                        finding = {
-                            "type": "Stored XSS (Verified)",
-                            "payload": payload,
-                            "status": "Vulnerable",
-                            "parameter": vuln_data.get("param", "unknown")
-                        }
-                        # Log globally and locally
-                        self._log_result(finding["type"], finding["payload"], "Vulnerable", finding["parameter"])
-                        local_stored_findings.append(finding)
-                except json.JSONDecodeError:
-                    continue
-            
-            process.wait()
-            return local_stored_findings
+                data = {}
+                for ipt in inputs:
+                    name = ipt.get('name')
+                    if name:
+                        data[name] = canary_id # Plant the canary in every field
+                
+                # Submit the form
+                if method == 'post':
+                    self.session.post(action, data=data, timeout=5)
+                else:
+                    self.session.get(action, params=data, timeout=5)
         except Exception as e:
-            with print_lock:
-                print(f"[-] Dalfox sxss execution error: {e}")
             return []
+
+        # Step 2: Verification - Check every page in the crawl list for this canary
+        stored_findings = []
+        for check_page in all_pages:
+            try:
+                # We do a fresh GET to see if the stored data now renders
+                verify_res = self.session.get(check_page, timeout=5)
+                if canary_id in verify_res.text:
+                    with print_lock:
+                        print(f"[!] STORED REFLECTION DETECTED: {page_url} -> {check_page}")
+                    
+                    # Now that we know it reflects, run ONE targeted Dalfox scan
+                    finding = {
+                        "type": "Stored XSS (Mapped)",
+                        "payload": f"Reflects at {check_page}",
+                        "status": "Vulnerable",
+                        "parameter": "Multiple/Form"
+                    }
+                    self._log_result(finding["type"], finding["payload"], "Vulnerable", "Stored-Path")
+                    stored_findings.append(finding)
+            except:
+                continue
+                
+        return stored_findings
 
     # Function to coordinate scanning for a specific page
     def scan_page_workflow(self, page):
