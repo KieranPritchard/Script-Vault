@@ -290,7 +290,7 @@ def main():
     vulnerability_log = []
 
     # Creates the thread pool executor
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         # Maps the workflow to the all_pages list, passing both page and the full all_pages list
         futures = [executor.submit(scanner.scan_page_workflow, page, all_pages) for page in all_pages]
         
