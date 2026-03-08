@@ -136,22 +136,22 @@ class XSSDetection:
                             # Checks if the stored xss was used
                             if "sxss" in cmd: v_type = "Stored-XSS"
                             # Logs the results
-                            self._log_result(v_type, poc, "Vulnerable", data.get("param", "url-path"))
+                            self._log_result(v_type, self.target_url, poc, "Vulnerable", data.get("param", "url-path"))
                         # Passes the exception
                         except: pass
             # Passes the exception
             except: pass
 
     # Method to log result
-    def _log_result(self, xtype, payload, status, param):
+    def _log_result(self, xtype, url, payload, status, param):
         # Logs the signature
-        sig = f"{xtype}-{param}-{payload}"
+        sig = f"{xtype}-{url}-{param}-{payload}"
         # Uses the results lock to log the data
         with self.results_lock:
             # Checks if the data is not incomplete
             if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == sig for r in self.results):
                 # Stores the entry
-                res_entry = {"type": xtype, "parameter": param, "payload": payload, "status": status}
+                res_entry = {"type": xtype, "url": url, "parameter": param, "payload": payload, "status": status}
                 # Adds the entry to 
                 self.results.append(res_entry)
                 # Outputs the found data
@@ -167,7 +167,7 @@ class XSSDetection:
             print("[!] No vulnerabilities found to export.")
             return
         # Creates the keys
-        keys = ["type", "parameter", "payload", "status"]
+        keys = ["type", "url", "parameter", "payload", "status"]
         # Opens the file to rewrite data
         with open(filename, 'w', newline='') as f:
             # Writes the data to the field names
