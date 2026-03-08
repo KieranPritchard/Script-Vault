@@ -82,7 +82,7 @@ class XSSDetection:
             [
                 self.dalfox_path, "url", scan_url, 
                 "--worker", "100",           # High concurrency for speed
-                "--delay", "100",            # Adds a delay
+                "--delay", "20",            # Adds a delay
                 "--max-cpu", "6",
                 "--mining-dict",             # Thorough: search for hidden parameters
                 "--mining-dom",              # Thorough: check DOM-based XSS
@@ -95,7 +95,7 @@ class XSSDetection:
                 "--trigger", scan_url, 
                 "--worker", "50",            # Lower workers for posting js
                 "--max-cpu", "6",
-                "--delay", "100",            # Added a similer delay
+                "--delay", "20",            # Added a similer delay
                 "--silence", "--no-color", "--format", "json"
             ]
         ]
