@@ -10,118 +10,172 @@ from urllib.parse import urljoin, urlparse, parse_qs, unquote
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
+# Creates the object for the print lock
 print_lock = Lock()
 
-class XSSPayloadTester:
+# Class to store the detection logic
+class XSSDetection:
     def __init__(self, target_url):
-        self.target_url = target_url
-        self.session = requests.Session()
-        self.results = []
-        self.results_lock = Lock()
-        self.target_domain = urlparse(target_url).netloc
+        self.target_url = target_url # Stores the target url
+        self.session = requests.Session() # Stores the session
+        self.results = [] # Stores the results
+        self.results_lock = Lock() # Creates a lock for the results
+        self.target_domain = urlparse(target_url).netloc # Sets the target domain
         
         # Locate binaries
         self.dalfox_path = shutil.which("dalfox") or os.path.expanduser("~/go/bin/dalfox")
 
+    # Method to craft the headers
     def get_headers(self):
+        # Returns a header
         return {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 
+    # Method of crawl the website
     def crawl(self, url, visited=None):
+        # Checks if visited is none and sets the visited to a set
         if visited is None: visited = set()
+        # Parses the url
         parsed = urlparse(url)
+        # Checks if the url is visited or the domain is not in parsed
         if url in visited or self.target_domain not in parsed.netloc:
+            # Returns visited
             return visited
+        # Checks for if any of the extentions are 
         if any(parsed.path.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf', '.woff', '.svg']):
+            # Returns visited
             return visited
 
+        # Outputs the page being crawled
         with print_lock:
             print(f"[*] Crawling: {url}")
+        # Adds the url to visited
         visited.add(url)
 
         try:
+            # Gets the response to the url 
             res = self.session.get(url, headers=self.get_headers(), timeout=7)
+            # Checks if the status code is 200 and is html page
             if res.status_code == 200 and 'text/html' in res.headers.get('Content-Type', ''):
+                # Creates a soup object
                 soup = BeautifulSoup(res.text, 'html.parser')
+                # Loops over the link tags
                 for link in soup.find_all('a', href=True):
+                    # Creates a new url and crawls recursivley
                     full_url = urljoin(url, link['href']).split('#')[0]
                     self.crawl(full_url, visited)
+        # Passs an exception
         except: pass
+        # Returns visited
         return visited
 
+    # Method to run dalfox
     def run_dalfox(self, target_url):
+        # Checks if dalfox path exists
         if not os.path.exists(str(self.dalfox_path)): return
 
+        # Creates the scan url if there is a parameter in it
         scan_url = target_url if "?" in target_url else target_url + "?id=1&q=test"
         
-        # Refined for "Thorough yet Fast" performance
+        # Stores the commands for stored and 
         commands = [
-            # General URL Scan: Increased workers, removed delay, added parameter mining for thoroughness
+            # General URL Scan
             [
                 self.dalfox_path, "url", scan_url, 
                 "--worker", "100",           # High concurrency for speed
-                "--delay", "100",
+                "--delay", "100",            # Adds a delay
                 "--mining-dict",             # Thorough: search for hidden parameters
                 "--mining-dom",              # Thorough: check DOM-based XSS
-                "--waf-evasion", 
+                "--waf-evasion",             # Evades the fireware
                 "--silence", "--no-color", "--format", "json"
             ],
-            # Stored XSS Scan: Increased workers and removed delay to finish the trigger/verify cycle faster
+            # Stored XSS Scan
             [
                 self.dalfox_path, "sxss", scan_url, 
                 "--trigger", scan_url, 
-                "--worker", "50",            # Balanced for stateful checking
-                "--delay", "100",
+                "--worker", "50",            # Lower workers for posting js
+                "--delay", "100",            # Added a similer delay
                 "--silence", "--no-color", "--format", "json"
             ]
         ]
 
+        # Loops over the commands in commands
         for cmd in commands:
             try:
+                # Creates a new subprocess to pip the content into the script
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                # Sets the timeout to 180 seconds
                 stdout, _ = proc.communicate(timeout=180)
+                # Loops over the lines in the output
                 for line in stdout.splitlines():
+                    # Cleans the line
                     clean_line = line.strip().rstrip(',')
+                    # Checks if the clean line as detected a hit
                     if clean_line.startswith('{'):
                         try:
+                            # Converts the data to a json format
                             data = json.loads(clean_line)
-                            # Exhaustive search for the actual payload string
+                            # Searches for the raw proof of concept
                             poc_raw = data.get("poc") or data.get("evidence") or data.get("injection_point") or data.get("url")
+                            # Extracts the proof of concept
                             poc = unquote(str(poc_raw)) if poc_raw else "Manual Verification Required"
                             
+                            # Extracts the verification type
                             v_type = f"Dalfox-{data.get('type', 'Unknown')}"
+                            # Checks if the stored xss was used
                             if "sxss" in cmd: v_type = "Stored-XSS"
+                            # Logs the results
                             self._log_result(v_type, poc, "Vulnerable", data.get("param", "url-path"))
+                        # Passes the exception
                         except: pass
+            # Passes the exception
             except: pass
 
+    # Method to log result
     def _log_result(self, xtype, payload, status, param):
+        # Logs the signature
         sig = f"{xtype}-{param}-{payload}"
+        # Uses the results lock to log the data
         with self.results_lock:
+            # Checks if the data is not incomplete
             if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == sig for r in self.results):
+                # Stores the entry
                 res_entry = {"type": xtype, "parameter": param, "payload": payload, "status": status}
+                # Adds the entry to 
                 self.results.append(res_entry)
+                # Outputs the found data
                 with print_lock:
                     print(f"\n[!] {xtype} DETECTED!")
                     print(f"    Param: {param}")
                     print(f"    PoC: {payload}\n")
 
+    # Method to save results to csv
     def save_results_to_csv(self, filename="xss_results.csv"):
+        # Checks for results
         if not self.results:
             print("[!] No vulnerabilities found to export.")
             return
+        # Creates the keys
         keys = ["type", "parameter", "payload", "status"]
+        # Opens the file to rewrite data
         with open(filename, 'w', newline='') as f:
+            # Writes the data to the field names
             writer = csv.DictWriter(f, fieldnames=keys)
+            # Writes the header
             writer.writeheader()
+            # Writes the rows from results
             writer.writerows(self.results)
+        # Outputs the result is saved
         print(f"[✓] Final report saved to {filename}")
 
 def main():
+    # ALlows the target to be inputted
     target = input("Enter Target URL: ").strip()
+    # Does some validation
     if not target.startswith("http"): return
     
+    # Starts the timeer and scannerr
     start_time = time.perf_counter()
-    scanner = XSSPayloadTester(target)
+    scanner = XSSDetection(target)
     
     print("\n--- PHASE 1: CRAWLING ---")
     discovered_urls = scanner.crawl(target)
