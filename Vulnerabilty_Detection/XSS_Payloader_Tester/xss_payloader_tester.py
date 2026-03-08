@@ -83,7 +83,7 @@ class XSSDetection:
                 self.dalfox_path, "url", scan_url, 
                 "--worker", "100",           # High concurrency for speed
                 "--delay", "20",            # Adds a delay
-                "--max-cpu", "6",
+                "--max-cpu", "8",
                 "--mining-dict",             # Thorough: search for hidden parameters
                 "--mining-dom",              # Thorough: check DOM-based XSS
                 "--waf-evasion",             # Evades the fireware
@@ -94,7 +94,7 @@ class XSSDetection:
                 self.dalfox_path, "sxss", scan_url, 
                 "--trigger", scan_url, 
                 "--worker", "50",            # Lower workers for posting js
-                "--max-cpu", "6",
+                "--max-cpu", "8",
                 "--delay", "20",            # Added a similer delay
                 "--silence", "--no-color", "--format", "json"
             ]
