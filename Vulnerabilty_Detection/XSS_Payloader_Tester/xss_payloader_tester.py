@@ -136,7 +136,7 @@ class XSSDetection:
                             # Checks if the stored xss was used
                             if "sxss" in cmd: v_type = "Stored-XSS"
                             # Logs the results
-                            self._log_result(v_type, self.target_url, poc, "Vulnerable", data.get("param", "url-path"))
+                            self._log_result(v_type, scan_url, poc, "Vulnerable", data.get("param", "url-path"))
                         # Passes the exception
                         except: pass
             # Passes the exception
