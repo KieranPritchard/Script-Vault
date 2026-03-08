@@ -53,10 +53,24 @@ class XSSPayloadTester:
 
         scan_url = target_url if "?" in target_url else target_url + "?id=1&q=test"
         
-        # worker set to 5 and added --delay for better accuracy
+        # Refined for "Thorough yet Fast" performance
         commands = [
-            [self.dalfox_path, "url", scan_url, "--worker", "5", "--delay", "100", "--waf-evasion", "--silence", "--no-color", "--format", "json"],
-            [self.dalfox_path, "sxss", scan_url, "--trigger", scan_url, "--worker", "20", "--delay", "100", "--silence", "--no-color", "--format", "json"]
+            # General URL Scan: Increased workers, removed delay, added parameter mining for thoroughness
+            [
+                self.dalfox_path, "url", scan_url, 
+                "--worker", "100",           # High concurrency for speed
+                "--mining-dict",             # Thorough: search for hidden parameters
+                "--mining-dom",              # Thorough: check DOM-based XSS
+                "--waf-evasion", 
+                "--silence", "--no-color", "--format", "json"
+            ],
+            # Stored XSS Scan: Increased workers and removed delay to finish the trigger/verify cycle faster
+            [
+                self.dalfox_path, "sxss", scan_url, 
+                "--trigger", scan_url, 
+                "--worker", "50",            # Balanced for stateful checking
+                "--silence", "--no-color", "--format", "json"
+            ]
         ]
 
         for cmd in commands:
