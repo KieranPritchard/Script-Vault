@@ -181,41 +181,60 @@ class XSSDetection:
 
 def main():
     # ALlows the target to be inputted
-    target = input("Enter Target URL: ").strip()
+    target = input("[+] Enter Target URL: ").strip()
     # Does some validation
     if not target.startswith("http"): return
     
-    # Starts the timeer and scannerr
+    # Starts the timeer and loads the target into the scanner
     start_time = time.perf_counter()
     scanner = XSSDetection(target)
     
-    print("\n--- PHASE 1: CRAWLING ---")
+
+    print(f"\n[+] Crawling {target}")
+    
+    # Stores the discovered urls from the target
     discovered_urls = scanner.crawl(target)
     
+    # Stores the unique paths found
     unique_paths = {}
+    # Loops over the paths discovered
     for url in discovered_urls:
         # Normalises by path only so the same file with different params isn't crawled over and over
         p = urlparse(url)
-        if p.path not in unique_paths: unique_paths[p.path] = url
+
+        # Checks if the path is not in the unique variable
+        if p.path not in unique_paths: 
+            # Adds the path to the unquie paths path
+            unique_paths[p.path] = url
     
+    # Converts the paths values into a list
     all_targets = list(unique_paths.values())
     # Prioritise URLs that already have query parameters (higher XSS value, fewer total scans)
-    param_urls = [u for u in all_targets if "?" in u]
-    non_param_urls = [u for u in all_targets if "?" not in u]
+    param_urls = [url for url in all_targets if "?" in url] # Extracts the urls with parameters so they go first
+    non_param_urls = [u for u in all_targets if "?" not in u] # Then gets the non parameter oens 
+    # Creates an ordered list of urls
     ordered = param_urls + non_param_urls
+    # Lowers the amount of urls if they are over the maxinum number of targets
     scan_list = ordered[:MAX_SCAN_TARGETS] if MAX_SCAN_TARGETS is not None else ordered
+    # Prints the unique information
     print(f"[✓] Found {len(all_targets)} unique paths, selecting {len(scan_list)} for Dalfox scanning.")
 
-    print("\n--- PHASE 2: DALFOX SCAN (Stable Mode: 5 Threads) ---")
+    # Outputs the scan has started
+    print("\n[+] Running Dalfox scan")
     # max_workers kept low to reduce noisy traffic patterns
     with ThreadPoolExecutor(max_workers=MAX_DALFOX_THREADS) as executor:
+        # Runs the exceutor scan
         executor.map(scanner.run_dalfox, scan_list)
 
+    # Saves the results to csv
     scanner.save_results_to_csv()
     
+    # Calculates the elaspsed time
     elapsed = time.perf_counter() - start_time
+    # Outputs the final infromation
     print(f"\n[✓] Scan Complete in {elapsed:.2f} seconds.")
     print(f"[✓] Total unique vulnerabilities found: {len(scanner.results)}")
 
+# Starts the program
 if __name__ == "__main__":
     main()
