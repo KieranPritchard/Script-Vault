@@ -59,6 +59,7 @@ class XSSPayloadTester:
             [
                 self.dalfox_path, "url", scan_url, 
                 "--worker", "100",           # High concurrency for speed
+                "--delay", "100",
                 "--mining-dict",             # Thorough: search for hidden parameters
                 "--mining-dom",              # Thorough: check DOM-based XSS
                 "--waf-evasion", 
@@ -69,6 +70,7 @@ class XSSPayloadTester:
                 self.dalfox_path, "sxss", scan_url, 
                 "--trigger", scan_url, 
                 "--worker", "50",            # Balanced for stateful checking
+                "--delay", "100",
                 "--silence", "--no-color", "--format", "json"
             ]
         ]
