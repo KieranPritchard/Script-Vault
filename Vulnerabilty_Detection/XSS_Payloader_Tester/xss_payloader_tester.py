@@ -13,6 +13,13 @@ from threading import Lock
 # Creates the object for the print lock
 print_lock = Lock()
 
+# Global tuning knobs for performance and stealth
+MAX_SCAN_TARGETS = 60          # Max URLs that will be sent to Dalfox (None = scan everything we find)
+MAX_DALFOX_THREADS = 5         # How many Dalfox processes we run at the same time from Python
+DALFOX_WORKERS = 10            # How many internal workers Dalfox itself uses per scan
+DALFOX_DELAY = 2               # Delay in seconds Dalfox waits between its requests (higher = stealthier)
+DALFOX_TIMEOUT = 8             # Per-request timeout Dalfox uses when talking to the target
+
 # Class to store the detection logic
 class XSSDetection:
     def __init__(self, target_url):
@@ -74,16 +81,18 @@ class XSSDetection:
         if not os.path.exists(str(self.dalfox_path)): return
 
         # Creates the scan url if there is a parameter in it
+        # If there are no params, we add some generic ones so Dalfox still has injection points
         scan_url = target_url if "?" in target_url else target_url + "?id=1&q=test"
         
-        # Stores the commands for stored and 
+        # Stores the commands for stored and reflected checks so we can loop over them
         commands = [
             # General URL Scan
             [
                 self.dalfox_path, "url", scan_url, 
-                "--worker", "100",           # High concurrency for speed
-                "--delay", "20",            # Adds a delay
-                "--max-cpu", "8",
+                "--worker", str(DALFOX_WORKERS),
+                "--delay", str(DALFOX_DELAY),
+                "--timeout", str(DALFOX_TIMEOUT),
+                "--skip-bav",
                 "--mining-dict",             # Thorough: search for hidden parameters
                 "--mining-dom",              # Thorough: check DOM-based XSS
                 "--waf-evasion",             # Evades the fireware
@@ -93,14 +102,15 @@ class XSSDetection:
             [
                 self.dalfox_path, "sxss", scan_url, 
                 "--trigger", scan_url, 
-                "--worker", "50",            # Lower workers for posting js
-                "--max-cpu", "8",
-                "--delay", "20",            # Added a similer delay
+                "--worker", str(DALFOX_WORKERS),
+                "--delay", str(DALFOX_DELAY),
+                "--timeout", str(DALFOX_TIMEOUT),
+                "--skip-bav",
                 "--silence", "--no-color", "--format", "json"
             ]
         ]
 
-        # Loops over the commands in commands
+        # Loops over the commands in commands so every target URL gets both checks
         for cmd in commands:
             try:
                 # Creates a new subprocess to pip the content into the script
@@ -184,15 +194,21 @@ def main():
     
     unique_paths = {}
     for url in discovered_urls:
+        # Normalises by path only so the same file with different params isn't crawled over and over
         p = urlparse(url)
         if p.path not in unique_paths: unique_paths[p.path] = url
     
-    scan_list = list(unique_paths.values())
-    print(f"[✓] Found {len(scan_list)} unique targets.")
+    all_targets = list(unique_paths.values())
+    # Prioritise URLs that already have query parameters (higher XSS value, fewer total scans)
+    param_urls = [u for u in all_targets if "?" in u]
+    non_param_urls = [u for u in all_targets if "?" not in u]
+    ordered = param_urls + non_param_urls
+    scan_list = ordered[:MAX_SCAN_TARGETS] if MAX_SCAN_TARGETS is not None else ordered
+    print(f"[✓] Found {len(all_targets)} unique paths, selecting {len(scan_list)} for Dalfox scanning.")
 
     print("\n--- PHASE 2: DALFOX SCAN (Stable Mode: 5 Threads) ---")
-    # max_workers reduced to 5 to avoid server overwhelm
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    # max_workers kept low to reduce noisy traffic patterns
+    with ThreadPoolExecutor(max_workers=MAX_DALFOX_THREADS) as executor:
         executor.map(scanner.run_dalfox, scan_list)
 
     scanner.save_results_to_csv()
