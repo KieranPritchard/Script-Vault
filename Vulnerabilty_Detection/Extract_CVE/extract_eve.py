@@ -2,6 +2,8 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import subprocess
 import socket
+import os
+import json
 
 # Function to parse in nmap vulns data
 def extract_network_vulns(extracted_data, target):
@@ -36,5 +38,52 @@ def extract_network_vulns(extracted_data, target):
             elif elem.attrib.get('key') == 'is_exploit':
                 # Adds the data the extracted data column
                 extracted_data["Exploit"].append(elem.text)
-
+    # Returns the data
     return extracted_data
+
+# Function to parse and scan nuclei results
+def scan_and_parse_nuclei(extracted_data, target):
+    # Stores the command to be run
+    command = ["nuclei", "-u", target, "-jsonl", "-o", "results.jsonl", "-silent"]
+    
+    try:
+        # Outputs a scan has started
+        print(f"[*] Starting Nuclei scan on: {target}...")
+        # Runs the command
+        subprocess.run(command, check=True)
+        # Outputs the scan is complete
+        print(f"[+] Scan complete. Parsing results...")
+
+        # Parse the resulting file
+        if os.path.exists("results.jsonl"):
+            # Opens the results file made
+            with open("results.jsonl", 'r') as f:
+                # Loops over the line in the file
+                for line in f:
+                    # Checks for if there is an actual line
+                    if not line.strip(): 
+                        continue
+                    
+                    # Loads in the data and gets the infromation from it
+                    data = json.loads(line)
+                    info = data.get("info", {})
+                    
+                    # Extracts the data from the results
+                    extracted_data["Exploit ID"].append(data.get("template-id"))
+                    extracted_data["Type"].append(data.get("type"))
+                    extracted_data["CVSS"].append(info.get("classification", {}).get("cvss-score", 0.0))
+                    
+                    # Exploit is True because the entry exists in the success log
+                    extracted_data["Exploit"].append(True if data.get("matched-at") else False)
+        # Returns the data
+        return extracted_data
+
+    # Catches and outputs the error
+    except subprocess.CalledProcessError as e:
+        print(f"[!] Nuclei command failed: {e}")
+        # Returns the data
+        return extracted_data
+    except Exception as e:
+        print(f"[!] An error occurred: {e}")
+        # Returns the data
+        return extracted_data
