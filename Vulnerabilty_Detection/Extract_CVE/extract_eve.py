@@ -4,9 +4,12 @@ import subprocess
 import socket
 import os
 import json
+import requests
+import vulners
 
-# Function to parse in nmap vulns data
 def extract_network_vulns(extracted_data, target):
+    """Function to parse in nmap vulns data"""
+
     # Converts the target into an ip address for nmap
     ip_address = socket.gethostbyname(target)
 
@@ -41,8 +44,9 @@ def extract_network_vulns(extracted_data, target):
     # Returns the data
     return extracted_data
 
-# Function to parse and scan nuclei results
 def scan_and_parse_nuclei(extracted_data, target):
+    """Function to parse and scan nuclei results"""
+
     # Stores the command to be run
     command = ["nuclei", "-u", target, "-jsonl", "-o", "results.jsonl", "-silent"]
     
@@ -87,3 +91,45 @@ def scan_and_parse_nuclei(extracted_data, target):
         print(f"[!] An error occurred: {e}")
         # Returns the data
         return extracted_data
+
+def run_subfinder(domain):
+    """Function to run subfinder"""
+    print(f"[*] Discovering subdomains for {domain}...")
+    result = subprocess.run(["subfinder", "-d", domain, "-silent"], capture_output=True, text=True)
+    return [line for line in result.stdout.splitlines() if line]
+
+def audit_with_vulners_sdk(extracted_data, target, api_key):
+    """Probes headers and uses the Vulners Python SDK for a software audit."""
+    
+    # Creates an api object
+    v_api = vulners.VulnersApi(api_key=api_key)
+    try:
+        # Ouputs the target is being fingerprinted
+        print(f"[*] Fingerprinting {target} for Vulners SDK audit...")
+        # Gets the response form the target
+        res = requests.get(f"https://{target}", timeout=5, verify=False)
+        # Gets the server from the header
+        server = res.headers.get("Server", "")
+        
+        # Checks if a root is in the server
+        if "/" in server:
+            # Gets the name and version from the server
+            name, ver = server.split("/")[:2]
+            # Gets the results from the api
+            results = v_api.software_audit(software=[{"software": name.lower(), "version": ver}])
+            
+            # Loops over item in the results
+            for item in results:
+                # Loops over the vulnerabilitys
+                for v in item.get('vulnerabilities', []):
+                    # Stores the extracted data
+                    extracted_data["Exploit ID"].append(v.get('id'))
+                    extracted_data["Type"].append(f"SDK_Audit: {item['software']}")
+                    extracted_data["CVSS"].append(v.get('cvss', {}).get('score', 0.0))
+                    extracted_data["Exploit"].append(False) # Vulners SDK returns CVEs, not active exploits
+    # Catches the errors
+    except Exception as e:
+        # Outputs the errors
+        print(f"[!] SDK Audit Error on {target}: {e}")
+    # Returns the extracted data
+    return extracted_data
