@@ -6,6 +6,7 @@ import os
 import json
 import requests
 import vulners
+from dotenv import load_dotenv
 
 def extract_network_vulns(extracted_data, target):
     """Function to parse in nmap vulns data"""
@@ -133,3 +134,65 @@ def audit_with_vulners_sdk(extracted_data, target, api_key):
         print(f"[!] SDK Audit Error on {target}: {e}")
     # Returns the extracted data
     return extracted_data
+
+def is_domain_active(domain):
+    """Helper function to check if domain is active"""
+    try:
+        # Gets the host name
+        socket.gethostbyname(domain)
+        # Returns true
+        return True
+    # Catches the error
+    except socket.gaierror:
+        # Returns false
+        return False
+
+def main():
+    # Initialize the data structure
+    extracted_data = {
+        "Exploit ID": [],
+        "Type": [],
+        "CVSS": [],
+        "Exploit": []
+    }
+
+    # Load the variables from .env into the environment
+    load_dotenv("../../.env")
+
+    # Allows the user to enter a target domain
+    target_domain = input("[*] Please enter the target domain: ").strip()
+
+    # Checks using the helper function to see if the domain is active
+    if is_domain_active(target_domain):
+        # Gets the api key
+        vulners_api_key = os.getenv("VULNERS_KEY")
+
+        # Gets the subdomains from the function
+        subdomains = run_subfinder(target_domain)
+        
+        # Loops over the subdomains
+        for sub in subdomains:
+            # Outputs which subdomain is being processed
+            print(f"\n[+] Processing {sub}")
+            
+            # Runs the Nmap Parser
+            extracted_data = extract_network_vulns(extracted_data, sub)
+            
+            # Runs the Nuclei Parser
+            extracted_data = scan_and_parse_nuclei(extracted_data, f"https://{sub}")
+            
+            # Runs the direct Vulners SDK Audit
+            extracted_data = audit_with_vulners_sdk(extracted_data, sub, vulners_api_key)
+
+        # Export to Pandas for Analysis
+        df = pd.DataFrame(extracted_data)
+        # Outputs header
+        print("\n--- FINAL REPORT ---")
+        # Drop the duplicates
+        print(df.drop_duplicates())
+        # Outputs dataframe
+        print(df)
+
+# Starts the program
+if __name__ == "__main__":
+    main()
