@@ -45,7 +45,7 @@ def extract_network_vulns(extracted_data, target):
                         # Adds the data the extracted data column
                         extracted_data["Exploit"].append(elem.text)
     finally:
-        # Clean up nmap results to prevent data pollution
+        # Cleanup ensures no data leaks between targets
         if os.path.exists('results.xml'):
             os.remove('results.xml')
             
@@ -55,9 +55,9 @@ def extract_network_vulns(extracted_data, target):
 def scan_and_parse_nuclei(extracted_data, target):
     """Function to parse and scan nuclei results"""
 
-    # Ensure the target has a scheme; nuclei handles protocol discovery best with a base URL
+    # Ensures protocol discovery handles HTTP-only sites like vulnweb
     formatted_url = target if "://" in target else f"http://{target}"
-    
+
     # Stores the command to be run
     command = ["nuclei", "-u", formatted_url, "-jsonl", "-o", "results.jsonl", "-silent"]
     
@@ -91,7 +91,7 @@ def scan_and_parse_nuclei(extracted_data, target):
                     # Exploit is True because the entry exists in the success log
                     extracted_data["Exploit"].append(True if data.get("matched-at") else False)
             
-            # Remove the file after parsing to ensure the next subdomain starts fresh
+            # File removal prevents duplicate data in the final report
             os.remove("results.jsonl")
 
         # Returns the data
@@ -122,7 +122,8 @@ def audit_with_vulners_sdk(extracted_data, target, api_key):
         # Ouputs the target is being fingerprinted
         print(f"[*] Fingerprinting {target} for Vulners SDK audit...")
         # Gets the response form the target
-        res = requests.get(f"https://{target}", timeout=5, verify=False)
+        # Verify=False handles sites with expired/invalid SSL certificates
+        res = requests.get(f"http://{target}", timeout=5, verify=False)
         # Gets the server from the header
         server = res.headers.get("Server", "")
         
@@ -184,8 +185,11 @@ def main():
         # Gets the subdomains from the function
         subdomains = run_subfinder(target_domain)
         
+        # Ensures the main target is always scanned, even if no subdomains are found
+        targets_to_scan = list(set([target_domain] + subdomains))
+        
         # Loops over the subdomains
-        for sub in subdomains:
+        for sub in targets_to_scan:
             # Outputs which subdomain is being processed
             print(f"\n[+] Processing {sub}")
             
