@@ -202,14 +202,19 @@ def main():
             # Runs the direct Vulners SDK Audit
             extracted_data = audit_with_vulners_sdk(extracted_data, sub, vulners_api_key)
 
-        # Export to Pandas for Analysis
-        df = pd.DataFrame(extracted_data)
-        # Outputs header
-        print("\n--- FINAL REPORT ---")
-        # Drop the duplicates
-        print(df.drop_duplicates())
-        # Outputs dataframe
-        print(df)
+    # Export to Pandas for Analysis
+    df = pd.DataFrame(extracted_data)
+
+    # Filter for only rows where 'Exploit ID' starts with 'CVE'
+    # We use .str.startswith(..., na=False) to handle any potential None values
+    cve_only_df = df[df['Exploit ID'].str.startswith('CVE', na=False)].drop_duplicates()
+
+    print("\n--- FINAL CVE REPORT ---")
+    if cve_only_df.empty:
+        print("[*] No specific CVEs were detected for this target.")
+    else:
+        # Sort by CVSS score so the most dangerous ones are at the top
+        print(cve_only_df.sort_values(by="CVSS", ascending=False))
 
 # Starts the program
 if __name__ == "__main__":
