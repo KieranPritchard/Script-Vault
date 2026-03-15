@@ -17,39 +17,49 @@ def extract_network_vulns(extracted_data, target):
     # Runs a scan for vulnerabiltites and stores them in an xml file
     subprocess.run(["nmap", "-sV", "--script", "vulners", "-oX", "results.xml", ip_address])
 
-    # Parses in the tree
-    tree = ET.parse('results.xml')
-    # Gets the trees root
-    root = tree.getroot()
+    try:
+        if os.path.exists('results.xml'):
+            # Parses in the tree
+            tree = ET.parse('results.xml')
+            # Gets the trees root
+            root = tree.getroot()
 
-    # Loops over the table elements
-    for table in root.iter('table'):
-        # Loops over the nested elements
-        for elem in table:
-            # Checks if the key is id
-            if elem.attrib.get('key') == 'id':
-                # Adds the data the extracted data column
-                extracted_data["Exploit ID"].append(elem.text)
-            # Checks for type key
-            elif elem.attrib.get('key') == 'type':
-                # Adds the data the extracted data column
-                extracted_data["Type"].append(elem.text)
-            # Checks for cvss key 
-            elif elem.attrib.get('key') == 'cvss':
-                # Adds the data the extracted data column
-                extracted_data["CVSS"].append(elem.text)
-            # Checks for the is exploit key
-            elif elem.attrib.get('key') == 'is_exploit':
-                # Adds the data the extracted data column
-                extracted_data["Exploit"].append(elem.text)
+            # Loops over the table elements
+            for table in root.iter('table'):
+                # Loops over the nested elements
+                for elem in table:
+                    # Checks if the key is id
+                    if elem.attrib.get('key') == 'id':
+                        # Adds the data the extracted data column
+                        extracted_data["Exploit ID"].append(elem.text)
+                    # Checks for type key
+                    elif elem.attrib.get('key') == 'type':
+                        # Adds the data the extracted data column
+                        extracted_data["Type"].append(elem.text)
+                    # Checks for cvss key 
+                    elif elem.attrib.get('key') == 'cvss':
+                        # Adds the data the extracted data column
+                        extracted_data["CVSS"].append(elem.text)
+                    # Checks for the is exploit key
+                    elif elem.attrib.get('key') == 'is_exploit':
+                        # Adds the data the extracted data column
+                        extracted_data["Exploit"].append(elem.text)
+    finally:
+        # Clean up nmap results to prevent data pollution
+        if os.path.exists('results.xml'):
+            os.remove('results.xml')
+            
     # Returns the data
     return extracted_data
 
 def scan_and_parse_nuclei(extracted_data, target):
     """Function to parse and scan nuclei results"""
 
+    # Ensure the target has a scheme; nuclei handles protocol discovery best with a base URL
+    formatted_url = target if "://" in target else f"http://{target}"
+    
     # Stores the command to be run
-    command = ["nuclei", "-u", target, "-jsonl", "-o", "results.jsonl", "-silent"]
+    command = ["nuclei", "-u", formatted_url, "-jsonl", "-o", "results.jsonl", "-silent"]
     
     try:
         # Outputs a scan has started
@@ -80,6 +90,10 @@ def scan_and_parse_nuclei(extracted_data, target):
                     
                     # Exploit is True because the entry exists in the success log
                     extracted_data["Exploit"].append(True if data.get("matched-at") else False)
+            
+            # Remove the file after parsing to ensure the next subdomain starts fresh
+            os.remove("results.jsonl")
+
         # Returns the data
         return extracted_data
 
@@ -179,7 +193,7 @@ def main():
             extracted_data = extract_network_vulns(extracted_data, sub)
             
             # Runs the Nuclei Parser
-            extracted_data = scan_and_parse_nuclei(extracted_data, f"https://{sub}")
+            extracted_data = scan_and_parse_nuclei(extracted_data, sub)
             
             # Runs the direct Vulners SDK Audit
             extracted_data = audit_with_vulners_sdk(extracted_data, sub, vulners_api_key)
