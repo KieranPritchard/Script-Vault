@@ -6,13 +6,17 @@ import os
 import json
 import requests
 import vulners
+import shutil # Added to check for binary existence in PATH
 from dotenv import load_dotenv
 
 def extract_network_vulns(extracted_data, target):
     """Function to parse in nmap vulns data"""
 
     # Converts the target into an ip address for nmap
-    ip_address = socket.gethostbyname(target)
+    try:
+        ip_address = socket.gethostbyname(target)
+    except socket.gaierror:
+        return extracted_data
 
     # Runs a scan for vulnerabiltites and stores them in an xml file
     subprocess.run(["nmap", "-sV", "--script", "vulners", "-oX", "results.xml", ip_address])
@@ -113,6 +117,32 @@ def run_subfinder(domain):
     result = subprocess.run(["subfinder", "-d", domain, "-silent"], capture_output=True, text=True)
     return [line for line in result.stdout.splitlines() if line]
 
+def run_katana(targets):
+    """Function to crawl targets and subdomains for deep endpoints using Katana"""
+    
+    # Converts list of targets to a newline-separated string for Katana input
+    target_input = "\n".join(targets)
+    
+    # Check if katana is installed
+    if not shutil.which("katana"):
+        print("[!] Katana not found. Skipping deep crawl.")
+        return []
+
+    print(f"[*] Starting Katana deep crawl (including JS analysis)...")
+    try:
+        # -jc: Enable JavaScript check for hidden endpoints
+        # -jsl: Enable JavaScript parsing/leasing
+        # -kf: Filter out noise (images, css, etc.)
+        result = subprocess.run(
+            ["katana", "-silent", "-nc", "-jc", "-jsl", "-kf"],
+            input=target_input, capture_output=True, text=True, check=True
+        )
+        # Returns the list of discovered URLs
+        return [line for line in result.stdout.splitlines() if line]
+    except Exception as e:
+        print(f"[!] Katana crawl failed: {e}")
+        return []
+
 def audit_with_vulners_sdk(extracted_data, target, api_key):
     """Probes headers and uses the Vulners Python SDK for a software audit."""
     
@@ -121,7 +151,6 @@ def audit_with_vulners_sdk(extracted_data, target, api_key):
     try:
         # Ouputs the target is being fingerprinted
         print(f"[*] Fingerprinting {target} for Vulners SDK audit...")
-        # Gets the response form the target
         # Verify=False handles sites with expired/invalid SSL certificates
         res = requests.get(f"http://{target}", timeout=5, verify=False)
         # Gets the server from the header
@@ -182,15 +211,21 @@ def main():
         # Gets the api key
         vulners_api_key = os.getenv("VULNERS_KEY")
 
-        # Gets the subdomains from the function
+        # 1. Gets the subdomains from Subfinder
         subdomains = run_subfinder(target_domain)
         
-        # Ensures the main target is always scanned, even if no subdomains are found
-        targets_to_scan = list(set([target_domain] + subdomains))
+        # 2. Combine domain and subdomains to feed into Katana
+        initial_targets = list(set([target_domain] + subdomains))
         
-        # Loops over the subdomains
+        # 3. Run Katana for deep endpoint discovery (mapping the attack surface)
+        endpoints = run_katana(initial_targets)
+        
+        # Ensures all unique targets (subdomains + crawled endpoints) are scanned
+        targets_to_scan = list(set(initial_targets + endpoints))
+        
+        # Loops over all discovered targets
         for sub in targets_to_scan:
-            # Outputs which subdomain is being processed
+            # Outputs which subdomain/endpoint is being processed
             print(f"\n[+] Processing {sub}")
             
             # Runs the Nmap Parser

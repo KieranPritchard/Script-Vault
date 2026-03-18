@@ -10,6 +10,9 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
+# A Lock prevents threads from printing over each other
+print_lock = Lock()
+
 # Class to store sqli injection logic
 class SQLIDetection:
     # initalises the variable
@@ -366,9 +369,6 @@ def crawl_website(url, domain, visited=None):
 
     # Returns visited
     return visited
-
-# A Lock prevents threads from printing over each other
-print_lock = Lock()
 
 # Function to be executed by the threads.
 def scan_page(page, payloads, errors):
