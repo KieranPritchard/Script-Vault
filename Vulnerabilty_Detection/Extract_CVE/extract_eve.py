@@ -24,16 +24,16 @@ def check_env_setup(env_path):
 
 def extract_network_vulns(target):
     """Function to parse in nmap vulns data"""
-    findings = []
-    # Unique filename for concurrency safety
-    xml_file = f"nmap_{target.replace('.', '_')}.xml"
-    
+    local_results = []
     # Converts the target into an ip address for nmap
     try:
         ip_address = socket.gethostbyname(target)
     except socket.gaierror:
-        return findings
+        return local_results
 
+    # Unique filename for concurrency safety
+    xml_file = f"nmap_{target.replace('.', '_')}.xml"
+    
     # Runs a scan for vulnerabiltites and stores them in an xml file
     subprocess.run(["nmap", "-sV", "--script", "vulners", "-oX", xml_file, ip_address], capture_output=True, text=True)
 
@@ -46,46 +46,40 @@ def extract_network_vulns(target):
 
             # Loops over the table elements
             for table in root.iter('table'):
-                row = {"Exploit ID": None, "Type": None, "CVSS": 0.0, "Exploit": False, "Target": target}
                 # Loops over the nested elements
                 for elem in table:
-                    # Checks if the key is id
+                    # Logic remains the same, but we store in a list of dicts
+                    entry = {"Target": target, "Exploit ID": None, "Type": None, "CVSS": 0.0, "Exploit": False}
                     if elem.attrib.get('key') == 'id':
-                        row["Exploit ID"] = elem.text
-                    # Checks for type key
+                        entry["Exploit ID"] = elem.text
                     elif elem.attrib.get('key') == 'type':
-                        row["Type"] = elem.text
-                    # Checks for cvss key 
+                        entry["Type"] = elem.text
                     elif elem.attrib.get('key') == 'cvss':
-                        row["CVSS"] = elem.text
-                    # Checks for the is exploit key
+                        entry["CVSS"] = elem.text
                     elif elem.attrib.get('key') == 'is_exploit':
-                        row["Exploit"] = elem.text
-                
-                if row["Exploit ID"]:
-                    findings.append(row)
+                        entry["Exploit"] = elem.text
+                    
+                    if entry["Exploit ID"]:
+                        local_results.append(entry)
     finally:
         # Cleanup ensures no data leaks between targets
         if os.path.exists(xml_file):
             os.remove(xml_file)
             
-    # Returns the data as a list of dicts
-    return findings
+    # Returns the data
+    return local_results
 
 def scan_and_parse_nuclei(target):
     """Function to parse and scan nuclei results"""
-    findings = []
-    jsonl_file = f"nuclei_{target.replace('.', '_')}.jsonl"
-
+    local_results = []
     # Ensures protocol discovery handles HTTP-only sites like vulnweb
     formatted_url = target if "://" in target else f"http://{target}"
+    jsonl_file = f"nuclei_{target.replace('.', '_')}.jsonl"
 
     # Stores the command to be run
     command = ["nuclei", "-u", formatted_url, "-jsonl", "-o", jsonl_file, "-silent"]
     
     try:
-        # Outputs a scan has started
-        print(f"[*] Starting Nuclei scan on: {target}...")
         # Runs the command
         subprocess.run(command, check=True, capture_output=True)
 
@@ -95,34 +89,29 @@ def scan_and_parse_nuclei(target):
             with open(jsonl_file, 'r') as f:
                 # Loops over the line in the file
                 for line in f:
-                    # Checks for if there is an actual line
-                    if not line.strip(): 
-                        continue
+                    if not line.strip(): continue
                     
                     # Loads in the data and gets the infromation from it
                     data = json.loads(line)
                     info = data.get("info", {})
                     
-                    # Extracts the data from the results
-                    findings.append({
+                    local_results.append({
+                        "Target": target,
                         "Exploit ID": data.get("template-id"),
                         "Type": data.get("type"),
                         "CVSS": info.get("classification", {}).get("cvss-score", 0.0),
-                        "Exploit": True if data.get("matched-at") else False,
-                        "Target": target
+                        "Exploit": True if data.get("matched-at") else False
                     })
-            
             # File removal prevents duplicate data in the final report
             os.remove(jsonl_file)
-        return findings
-
-    # Catches and outputs the error
-    except (subprocess.CalledProcessError, Exception) as e:
+    except Exception as e:
         print(f"[!] Nuclei error on {target}: {e}")
-        return findings
+        
+    return local_results
 
 def run_subfinder(domain):
     """Function to run subfinder"""
+    if not shutil.which("subfinder"): return []
     print(f"[*] Discovering subdomains for {domain}...")
     result = subprocess.run(["subfinder", "-d", domain, "-silent"], capture_output=True, text=True)
     return [line for line in result.stdout.splitlines() if line]
@@ -141,24 +130,20 @@ def run_katana(targets):
         try:
             result = subprocess.run(
                 ["katana", "-u", formatted_target, "-silent", "-nc", "-jc", "-jsl", "-kf"],
-                capture_output=True, 
-                text=True, 
-                check=True
+                capture_output=True, text=True, check=True
             )
             for line in result.stdout.splitlines():
                 if line.strip():
                     discovered_endpoints.append(line.strip())
         except Exception:
             continue
-
     return list(set(discovered_endpoints))
 
 def audit_with_vulners_sdk(target, api_key):
     """Probes headers and uses the Vulners Python SDK for a software audit."""
-    findings = []
+    local_results = []
     v_api = vulners.VulnersApi(api_key=api_key)
     try:
-        print(f"[*] Fingerprinting {target} for Vulners SDK audit...")
         res = requests.get(f"http://{target}", timeout=5, verify=False)
         server = res.headers.get("Server", "")
         
@@ -168,16 +153,16 @@ def audit_with_vulners_sdk(target, api_key):
             
             for item in results:
                 for v in item.get('vulnerabilities', []):
-                    findings.append({
+                    local_results.append({
+                        "Target": target,
                         "Exploit ID": v.get('id'),
                         "Type": f"SDK_Audit: {item['software']}",
                         "CVSS": v.get('cvss', {}).get('score', 0.0),
-                        "Exploit": False,
-                        "Target": target
+                        "Exploit": False
                     })
-    except Exception as e:
-        print(f"[!] SDK Audit Error on {target}: {e}")
-    return findings
+    except Exception:
+        pass
+    return local_results
 
 def is_domain_active(domain):
     """Helper function to check if domain is active"""
@@ -189,17 +174,27 @@ def is_domain_active(domain):
 
 def check_exploit_exists(cve_id):
     """Checks searchsploit for local exploit availability"""
+    if not shutil.which("searchsploit"): return False
     try:
-        result = subprocess.run(
-            ['searchsploit', '--cve', str(cve_id), '--json'],
-            capture_output=True, text=True, check=False
-        )
+        result = subprocess.run(['searchsploit', '--cve', str(cve_id), '--json'], capture_output=True, text=True)
         data = json.loads(result.stdout)
         return len(data.get("RESULTS_EXPLOIT", [])) > 0
     except Exception:
         return False
 
+def check_dependencies():
+    """Verify required binaries exist in PATH"""
+    tools = ["nmap", "nuclei", "subfinder"]
+    missing = [tool for tool in tools if not shutil.which(tool)]
+    if missing:
+        print(f"[!] Critical missing tools: {', '.join(missing)}. Please install them.")
+        return False
+    return True
+
 def main():
+    if not check_dependencies(): return
+
+    # Define the path to the environment file
     env_file_path = "../../.env"
     check_env_setup(env_file_path)
     load_dotenv(env_file_path)
@@ -215,16 +210,17 @@ def main():
         
         all_findings = []
 
-        # We use a ThreadPool to run scans in parallel (5 at a time)
-        print(f"[*] Starting parallel scans on {len(targets_to_scan)} targets...")
+        # Using ThreadPoolExecutor for concurrent scanning (max 5 threads)
+        print(f"[*] Beginning concurrent scan of {len(targets_to_scan)} targets...")
         with ThreadPoolExecutor(max_workers=5) as executor:
-            # Create a list of tasks for each tool per target
-            nmap_tasks = {executor.submit(extract_network_vulns, t): t for t in targets_to_scan}
-            nuclei_tasks = {executor.submit(scan_and_parse_nuclei, t): t for t in targets_to_scan}
-            sdk_tasks = {executor.submit(audit_with_vulners_sdk, t, vulners_api_key): t for t in targets_to_scan}
+            # Map Nmap scans
+            nmap_futures = {executor.submit(extract_network_vulns, t): t for t in targets_to_scan}
+            # Map Nuclei scans
+            nuclei_futures = {executor.submit(scan_and_parse_nuclei, t): t for t in targets_to_scan}
+            # Map SDK audits
+            sdk_futures = {executor.submit(audit_with_vulners_sdk, t, vulners_api_key): t for t in targets_to_scan}
 
-            # Collect results as they finish
-            for future in as_completed({**nmap_tasks, **nuclei_tasks, **sdk_tasks}):
+            for future in as_completed({**nmap_futures, **nuclei_futures, **sdk_futures}):
                 all_findings.extend(future.result())
 
         # Export to Pandas for Analysis
@@ -232,17 +228,18 @@ def main():
 
         if not df.empty:
             # Filter for only rows where 'Exploit ID' starts with 'CVE'
-            cve_only_df = df[df['Exploit ID'].str.startswith('CVE', na=False)].copy().drop_duplicates()
+            cve_only_df = df[df['Exploit ID'].str.startswith('CVE', na=False)].drop_duplicates()
 
             print("\n--- FINAL CVE REPORT ---")
             if cve_only_df.empty:
-                print("[*] No specific CVEs were detected for this target.")
+                print("[*] No specific CVEs were detected.")
             else:
-                # Add exploit check only for unique CVEs to save time
+                # Add exploit check only for unique CVEs found
                 cve_only_df['in_metasploit'] = cve_only_df["Exploit ID"].apply(check_exploit_exists)
+                # Sort by CVSS score so the most dangerous ones are at the top
                 print(cve_only_df.sort_values(by="CVSS", ascending=False))
         else:
-            print("[!] No data collected during scan.")
+            print("[*] No vulnerabilities found.")
 
 # Starts the program
 if __name__ == "__main__":
