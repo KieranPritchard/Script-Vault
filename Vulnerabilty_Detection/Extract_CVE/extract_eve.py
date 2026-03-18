@@ -4,17 +4,52 @@ import subprocess
 import socket
 import os
 import json
-import requests
 import shutil
 from dotenv import load_dotenv
 
-def extract_network_vulns(extracted_data, target):
-    """Function to parse in nmap data using local scripts instead of the Vulners API script"""
+def check_exploit_exists(identifier):
+    """Check if an ID (CVE or EDB-ID) has a verified exploit in the local database using the --cve flag"""
+    if not identifier or not isinstance(identifier, str):
+        return False
+        
     try:
-        ip_address = socket.gethostbyname(target)
+        # Explicitly use the --cve flag for CVE patterns to ensure Searchsploit matches correctly
+        if "CVE-" in identifier.upper():
+            command = ['searchsploit', '--cve', identifier, '--json']
+        else:
+            command = ['searchsploit', identifier, '--json']
+
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        data = json.loads(result.stdout)
+        
+        # Check both exploit and shellcode results in the local Exploit-DB
+        has_exploit = len(data.get("RESULTS_EXPLOIT", [])) > 0
+        has_shellcode = len(data.get("RESULTS_SHELLCODE", [])) > 0
+        
+        return has_exploit or has_shellcode
+    except Exception:
+        return False
+
+def extract_network_vulns(extracted_data, target):
+    """Parse nmap data using local scripts; handles port-specific targets from input"""
+    try:
+        # Strip port for hostname resolution if present
+        host_only = target.split(':')[0]
+        ip_address = socket.gethostbyname(host_only)
     except socket.gaierror:
         return extracted_data
-    subprocess.run(["nmap", "-sV", "--script", "vuln", "-oX", "results.xml", ip_address], capture_output=True, text=True)
+
+    # Use -Pn to treat host as up (common for specialized ports like 7001)
+    nmap_cmd = ["nmap", "-sV", "--script", "vuln", "-Pn", "-oX", "results.xml", ip_address]
+    
+    # If the user provided a port, tell nmap to scan it specifically
+    if ":" in target:
+        port = target.split(':')[-1]
+        nmap_cmd.insert(1, "-p")
+        nmap_cmd.insert(2, port)
+
+    subprocess.run(nmap_cmd, capture_output=True, text=True)
+
     try:
         if os.path.exists('results.xml'):
             tree = ET.parse('results.xml')
@@ -33,25 +68,28 @@ def extract_network_vulns(extracted_data, target):
     return extracted_data
 
 def audit_with_local_searchsploit(extracted_data, software, version):
-    """Replaces Vulners SDK by querying the local Searchsploit (Exploit-DB) database"""
+    """Query local Searchsploit database for service versions found by Nmap"""
     query = f"{software} {version}".strip()
     try:
         result = subprocess.run(["searchsploit", query, "--json"], capture_output=True, text=True, check=False)
         data = json.loads(result.stdout)
-        results_list = data.get("RESULTS_EXPLOIT", [])
-        for exploit in results_list:
+        for exploit in data.get("RESULTS_EXPLOIT", []):
             extracted_data["Exploit ID"].append(exploit.get("EDB-ID") or exploit.get("Title"))
             extracted_data["Type"].append(f"Local_EDB: {software}")
             extracted_data["CVSS"].append("N/A") 
             extracted_data["Exploit"].append(True)
-    except Exception as e:
-        print(f"[!] Local Searchsploit Error for {query}: {e}")
+    except Exception:
+        pass
     return extracted_data
 
 def scan_and_parse_nuclei(extracted_data, target):
-    """Function to parse and scan nuclei results using local YAML templates"""
-    formatted_url = target if "://" in target else f"http://{target}"
-    command = ["nuclei", "-u", formatted_url, "-jsonl", "-o", "results.jsonl", "-silent"]
+    """Nuclei scanner updated for better protocol handling and specific vulnerability tagging"""
+    # Clean target for Nuclei to ensure it handles ports correctly
+    clean_target = target if "://" in target else f"http://{target}"
+    
+    # Added -tags for RCE/Weblogic and -severity to ensure high-value targets aren't skipped
+    command = ["nuclei", "-u", clean_target, "-tags", "cve,weblogic,rce", "-severity", "critical,high,medium", "-jsonl", "-o", "results.jsonl", "-silent"]
+    
     try:
         print(f"[*] Starting Nuclei scan on: {target}...")
         subprocess.run(command, check=True)
@@ -66,71 +104,56 @@ def scan_and_parse_nuclei(extracted_data, target):
                     extracted_data["CVSS"].append(info.get("classification", {}).get("cvss-score", 0.0))
                     extracted_data["Exploit"].append(True if data.get("matched-at") else False)
             os.remove("results.jsonl")
-        return extracted_data
     except Exception as e:
         print(f"[!] Nuclei Error: {e}")
-        return extracted_data
+    return extracted_data
 
 def run_subfinder(domain):
-    """Standard subdomain discovery"""
+    """Subdomain discovery (skips if port is provided in domain string)"""
+    if ":" in domain: return []
     print(f"[*] Discovering subdomains for {domain}...")
     result = subprocess.run(["subfinder", "-d", domain, "-silent"], capture_output=True, text=True)
     return [line for line in result.stdout.splitlines() if line]
 
 def run_katana(targets):
-    """Deep crawl to find hidden endpoints for Nuclei to check"""
-    if not shutil.which("katana"):
-        print("[!] Katana not found. Skipping deep crawl.")
-        return []
-    discovered_endpoints = []
+    """Crawl for hidden endpoints"""
+    if not shutil.which("katana"): return []
+    discovered = []
     print(f"[*] Starting Katana deep crawl...")
-    for target in targets:
-        formatted_target = target if "://" in target else f"http://{target}"
+    for t in targets:
+        fmt = t if "://" in t else f"http://{t}"
         try:
-            result = subprocess.run(["katana", "-u", formatted_target, "-silent", "-nc", "-jc", "-jsl", "-kf"], capture_output=True, text=True, check=True)
-            discovered_endpoints.extend([line.strip() for line in result.stdout.splitlines() if line.strip()])
-        except Exception:
-            continue
-    return list(set(discovered_endpoints))
-
-def check_exploit_exists(identifier):
-    """Check if an ID (CVE or EDB-ID) has a verified exploit in the local database"""
-    if not identifier: return False
-    try:
-        search_term = str(identifier).strip()
-        command = ["searchsploit", "--json"]
-        if search_term.upper().startswith("CVE-"):
-            command.extend(["--cve", search_term])
-        else:
-            command.append(search_term)
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
-        if not result.stdout.strip(): return False
-        data = json.loads(result.stdout)
-        return len(data.get("RESULTS_EXPLOIT", [])) > 0
-    except (json.JSONDecodeError, Exception):
-        return False
+            result = subprocess.run(["katana", "-u", fmt, "-silent", "-nc", "-jc"], capture_output=True, text=True)
+            discovered.extend([line.strip() for line in result.stdout.splitlines() if line.strip()])
+        except: continue
+    return list(set(discovered))
 
 def main():
     extracted_data = {"Exploit ID": [], "Type": [], "CVSS": [], "Exploit": []}
-    target_domain = input("[*] Please enter the target domain: ").strip()
-    if target_domain:
-        subdomains = run_subfinder(target_domain)
-        initial_targets = list(set([target_domain] + subdomains))
-        endpoints = run_katana(initial_targets)
-        targets_to_scan = list(set(initial_targets + endpoints))
-        for sub in targets_to_scan:
+    target_input = input("[*] Please enter the target domain (e.g. pentest-ground.com:7001): ").strip()
+
+    if target_input:
+        # If input has a port, we skip general subdomain enumeration for speed
+        if ":" in target_input:
+            targets_to_scan = [target_input]
+        else:
+            subdomains = run_subfinder(target_input)
+            targets_to_scan = list(set([target_input] + subdomains))
+            targets_to_scan.extend(run_katana(targets_to_scan))
+        
+        for sub in list(set(targets_to_scan)):
             print(f"\n[+] Processing {sub}")
             extracted_data = extract_network_vulns(extracted_data, sub)
             extracted_data = scan_and_parse_nuclei(extracted_data, sub)
+
     df = pd.DataFrame(extracted_data)
     if not df.empty:
         df = df.drop_duplicates(subset=["Exploit ID"])
-        print("[*] Verifying findings against local Exploit-DB...")
+        # Apply the updated searchsploit check
         df['Verified_Exploit_Local'] = df["Exploit ID"].apply(check_exploit_exists)
-        print("\n--- FINAL VULNERABILITY REPORT (LOCAL TOOLS ONLY) ---")
         df['CVSS_Numeric'] = pd.to_numeric(df['CVSS'], errors='coerce').fillna(0)
-        report_cols = ["Exploit ID", "Type", "CVSS", "Verified_Exploit_Local"]
-        print(df.sort_values(by="CVSS_Numeric", ascending=False)[report_cols].to_string(index=False))
+        print("\n--- FINAL VULNERABILITY REPORT (LOCAL TOOLS ONLY) ---")
+        print(df.sort_values(by="CVSS_Numeric", ascending=False)[["Exploit ID", "Type", "CVSS", "Verified_Exploit_Local"]])
     else:
         print("[*] No vulnerabilities detected.")
 
