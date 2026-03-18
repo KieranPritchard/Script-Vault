@@ -9,6 +9,18 @@ import vulners
 import shutil # Added to check for binary existence in PATH
 from dotenv import load_dotenv
 
+def check_env_setup(env_path):
+    """Checks for .env file and creates it with user input if missing."""
+    if not os.path.exists(env_path):
+        print(f"[!] Configuration file not found at {env_path}")
+        api_key = input("[*] Please enter your Vulners API Key to save it: ").strip()
+        try:
+            with open(env_path, "w") as f:
+                f.write(f"VULNERS_KEY={api_key}\n")
+            print(f"[+] .env file created successfully at {env_path}\n")
+        except Exception as e:
+            print(f"[!] Failed to create .env file: {e}")
+
 def extract_network_vulns(extracted_data, target):
     """Function to parse in nmap vulns data"""
 
@@ -235,8 +247,14 @@ def main():
         "Exploit": []
     }
 
+    # Define the path to the environment file
+    env_file_path = "../../.env"
+
+    # Automatically check if the .env file exists and set it up if not
+    check_env_setup(env_file_path)
+
     # Load the variables from .env into the environment
-    load_dotenv("../../.env")
+    load_dotenv(env_file_path)
 
     # Allows the user to enter a target domain
     target_domain = input("[*] Please enter the target domain: ").strip()
