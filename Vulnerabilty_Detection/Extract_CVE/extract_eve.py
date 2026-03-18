@@ -118,30 +118,49 @@ def run_subfinder(domain):
     return [line for line in result.stdout.splitlines() if line]
 
 def run_katana(targets):
-    """Function to crawl targets and subdomains for deep endpoints using Katana"""
-    
-    # Converts list of targets to a newline-separated string for Katana input
-    target_input = "\n".join(targets)
-    
-    # Check if katana is installed
+    """Function to crawl targets for deep endpoints using Katana while silencing output"""
+    # Check if katana is installed in the system PATH
     if not shutil.which("katana"):
+        # We keep this print as it's a critical configuration warning, not tool noise
         print("[!] Katana not found. Skipping deep crawl.")
         return []
 
-    print(f"[*] Starting Katana deep crawl (including JS analysis)...")
-    try:
-        # -jc: Enable JavaScript check for hidden endpoints
-        # -jsl: Enable JavaScript parsing/leasing
-        # -kf: Filter out noise (images, css, etc.)
-        result = subprocess.run(
-            ["katana", "-silent", "-nc", "-jc", "-jsl", "-kf"],
-            input=target_input, capture_output=True, text=True, check=True
-        )
-        # Returns the list of discovered URLs
-        return [line for line in result.stdout.splitlines() if line]
-    except Exception as e:
-        print(f"[!] Katana crawl failed: {e}")
-        return []
+    # Join targets with commas or handle individually depending on version requirements
+    # Katana often prefers explicit URL mapping
+    discovered_endpoints = []
+    
+    print(f"[*] Starting Katana deep crawl (Silenced)...")
+    
+    for target in targets:
+        # Ensure target has a protocol for Katana's input requirements
+        formatted_target = target if "://" in target else f"http://{target}"
+        
+        try:
+            # -u: Explicitly target a URL
+            # -jc: JavaScript Check
+            # -jsl: JavaScript Leasing
+            # -kf: Known Filters
+            # capture_output=True: Diverts stdout and stderr so you don't see them
+            result = subprocess.run(
+                ["katana", "-u", formatted_target, "-silent", "-nc", "-jc", "-jsl", "-kf"],
+                capture_output=True, 
+                text=True, 
+                check=True
+            )
+            
+            # Extract and filter lines
+            for line in result.stdout.splitlines():
+                if line.strip():
+                    discovered_endpoints.append(line.strip())
+                    
+        except subprocess.CalledProcessError:
+            # Silently catch the error (status 2, etc.) so the script doesn't stop
+            continue
+        except Exception:
+            continue
+
+    # Return unique discovered endpoints
+    return list(set(discovered_endpoints))
 
 def audit_with_vulners_sdk(extracted_data, target, api_key):
     """Probes headers and uses the Vulners Python SDK for a software audit."""
