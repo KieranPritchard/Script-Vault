@@ -19,7 +19,7 @@ def extract_network_vulns(extracted_data, target):
         return extracted_data
 
     # Runs a scan for vulnerabiltites and stores them in an xml file
-    subprocess.run(["nmap", "-sV", "--script", "vulners", "-oX", "results.xml", ip_address])
+    subprocess.run(["nmap", "-sV", "--script", "vulners", "-oX", "results.xml", ip_address], capture_output=True, text=True)
 
     try:
         if os.path.exists('results.xml'):
@@ -129,7 +129,7 @@ def run_katana(targets):
     # Katana often prefers explicit URL mapping
     discovered_endpoints = []
     
-    print(f"[*] Starting Katana deep crawl (Silenced)...")
+    print(f"[*] Starting Katana deep crawl...")
     
     for target in targets:
         # Ensure target has a protocol for Katana's input requirements
@@ -210,6 +210,22 @@ def is_domain_active(domain):
         # Returns false
         return False
 
+def check_exploit_exists(cve_id):
+    try:
+        # Run searchsploit for the specific CVE and return JSON output
+        result = subprocess.run(
+            ['searchsploit', '--cve', str(cve_id), '--json'],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        # Parse the JSON and check if any exploits were found
+        data = json.loads(result.stdout)
+        return len(data.get("RESULTS_EXPLOIT", [])) > 0
+    except Exception:
+        return False
+
 def main():
     # Initialize the data structure
     extracted_data = {
@@ -267,6 +283,7 @@ def main():
     if cve_only_df.empty:
         print("[*] No specific CVEs were detected for this target.")
     else:
+        df['in_metasploit'] = df["Exploit ID"].apply(check_exploit_exists)
         # Sort by CVSS score so the most dangerous ones are at the top
         print(cve_only_df.sort_values(by="CVSS", ascending=False))
 
