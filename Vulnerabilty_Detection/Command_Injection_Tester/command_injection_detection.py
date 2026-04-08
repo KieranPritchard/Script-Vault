@@ -39,3 +39,16 @@ def run_subfinder(domain):
     
     # Returns the domains
     return [line for line in result.stdout.splitlines() if line]
+
+
+def scan_commix(endpoints):
+    if endpoints:
+        print(f"[*] Passing {len(all_endpoints)} endpoints to Commix...")
+        # Join endpoints by newline to pass to Commix via stdin
+        input_data = "\n".join(all_endpoints)
+        
+        # -m tells commix to read multiple targets from stdin (-)
+        commix_cmd = ["commix", "--batch", "-m", "-"]
+        subprocess.run(commix_cmd, input=input_data, text=True)
+    else:
+        print("[!] No endpoints discovered to test.")
