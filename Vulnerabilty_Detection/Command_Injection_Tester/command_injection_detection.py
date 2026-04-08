@@ -52,3 +52,37 @@ def scan_commix(endpoints):
         subprocess.run(commix_cmd, input=input_data, text=True)
     else:
         print("[!] No endpoints discovered to test.")
+
+def main():
+    # Allows the user to enter a target
+    target = input("Enter a target (e.g. 'example.com'): ").strip()
+
+    # Runs subfinder to find subdomains
+    subdomains = run_subfinder(target)
+
+    # Checks if there is not any subdomains
+    if not subdomains:
+        # Fallback list
+        subdomains = [target]
+
+    # Stores all endpoints
+    all_endpoints = []
+
+    # Loops over each subdomain with katan
+    for subdomain in subdomains:
+        # Gets the results from katana
+        results = run_katana(subdomain)
+
+        # Adds the results to the
+        all_endpoints.extend(results)
+
+    if all_endpoints:
+        print(f"[*] Passing {len(all_endpoints)} endpoints to Commix...")
+        # Join endpoints by newline to pass to Commix via stdin
+        input_data = "\n".join(all_endpoints)
+        
+        # -m tells commix to read multiple targets from stdin (-)
+        commix_cmd = ["commix", "--batch", "-m", "-"]
+        subprocess.run(commix_cmd, input=input_data, text=True)
+    else:
+        print("[!] No endpoints discovered to test.")
