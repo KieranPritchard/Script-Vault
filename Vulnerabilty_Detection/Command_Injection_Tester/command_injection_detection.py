@@ -24,3 +24,18 @@ def run_katana(targets):
             discovered.extend([line.strip() for line in result.stdout.splitlines() if line.strip()])
         except: continue # Continues if there isnt anything
     return list(set(discovered)) # Returns a list without duplicates
+
+def run_subfinder(domain):
+    """Subdomain discovery (skips if port is provided in domain string)"""
+    
+    # Checks if domain has a port number
+    if ":" in domain: return []
+
+    # Outputs the program is discovering subdomains
+    print(f"[*] Discovering subdomains for {domain}...")
+    
+    # Gets the result of the scan
+    result = subprocess.run(["subfinder", "-d", domain, "-silent"], capture_output=True, text=True)
+    
+    # Returns the domains
+    return [line for line in result.stdout.splitlines() if line]
