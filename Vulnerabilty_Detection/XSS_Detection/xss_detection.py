@@ -5,8 +5,7 @@ import os
 import json
 import shutil
 import csv
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse, parse_qs, unquote
+from urllib.parse import urlparse, unquote
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import random
