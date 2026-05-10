@@ -39,14 +39,18 @@ class XSSDetection:
 
     # Method of crawl the website
     def crawl(self, url, visited=None):
+        
         # Checks if visited is none and sets the visited to a set
         if visited is None: visited = set()
+        
         # Parses the url
         parsed = urlparse(url)
+        
         # Checks if the url is visited or the domain is not in parsed
         if url in visited or self.target_domain not in parsed.netloc:
             # Returns visited
             return visited
+        
         # Checks for if any of the extentions are 
         if any(parsed.path.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf', '.woff', '.svg']):
             # Returns visited
@@ -61,17 +65,22 @@ class XSSDetection:
         try:
             # Gets the response to the url 
             res = self.session.get(url, headers=self.get_headers(), timeout=7)
+        
             # Checks if the status code is 200 and is html page
             if res.status_code == 200 and 'text/html' in res.headers.get('Content-Type', ''):
+        
                 # Creates a soup object
                 soup = BeautifulSoup(res.text, 'html.parser')
+        
                 # Loops over the link tags
                 for link in soup.find_all('a', href=True):
                     # Creates a new url and crawls recursivley
                     full_url = urljoin(url, link['href']).split('#')[0]
                     self.crawl(full_url, visited)
+        
         # Passs an exception
         except: pass
+        
         # Returns visited
         return visited
 
@@ -115,45 +124,59 @@ class XSSDetection:
             try:
                 # Creates a new subprocess to pip the content into the script
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        
                 # Sets the timeout to 180 seconds
                 stdout, _ = proc.communicate(timeout=180)
+        
                 # Loops over the lines in the output
                 for line in stdout.splitlines():
                     # Cleans the line
                     clean_line = line.strip().rstrip(',')
+        
                     # Checks if the clean line as detected a hit
                     if clean_line.startswith('{'):
                         try:
                             # Converts the data to a json format
                             data = json.loads(clean_line)
+        
                             # Searches for the raw proof of concept
                             poc_raw = data.get("poc") or data.get("evidence") or data.get("injection_point") or data.get("url")
+        
                             # Extracts the proof of concept
                             poc = unquote(str(poc_raw)) if poc_raw else "Manual Verification Required"
                             
                             # Extracts the verification type
                             v_type = f"Dalfox-{data.get('type', 'Unknown')}"
+        
                             # Checks if the stored xss was used
                             if "sxss" in cmd: v_type = "Stored-XSS"
+        
                             # Logs the results
                             self._log_result(v_type, scan_url, poc, "Vulnerable", data.get("param", "url-path"))
+        
                         # Passes the exception
                         except: pass
+        
             # Passes the exception
             except: pass
 
     # Method to log result
     def _log_result(self, xtype, url, payload, status, param):
+        
         # Logs the signature
         sig = f"{xtype}-{url}-{param}-{payload}"
+        
         # Uses the results lock to log the data
         with self.results_lock:
             # Checks if the data is not incomplete
             if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == sig for r in self.results):
+        
                 # Stores the entry
                 res_entry = {"type": xtype, "url": url, "parameter": param, "payload": payload, "status": status}
+        
                 # Adds the entry to 
                 self.results.append(res_entry)
+        
                 # Outputs the found data
                 with print_lock:
                     print(f"\n[!] {xtype} DETECTED!")
@@ -166,16 +189,21 @@ class XSSDetection:
         if not self.results:
             print("[!] No vulnerabilities found to export.")
             return
+        
         # Creates the keys
         keys = ["type", "url", "parameter", "payload", "status"]
+        
         # Opens the file to rewrite data
         with open(filename, 'w', newline='') as f:
             # Writes the data to the field names
             writer = csv.DictWriter(f, fieldnames=keys)
+        
             # Writes the header
             writer.writeheader()
+        
             # Writes the rows from results
             writer.writerows(self.results)
+        
         # Outputs the result is saved
         print(f"[✓] Final report saved to {filename}")
 
@@ -197,30 +225,39 @@ def main():
     
     # Stores the unique paths found
     unique_paths = {}
+    
     # Loops over the paths discovered
     for url in discovered_urls:
+        
         # Normalises by path only so the same file with different params isn't crawled over and over
         p = urlparse(url)
 
         # Checks if the path is not in the unique variable
         if p.path not in unique_paths: 
+            
             # Adds the path to the unquie paths path
             unique_paths[p.path] = url
     
     # Converts the paths values into a list
     all_targets = list(unique_paths.values())
+    
     # Prioritise URLs that already have query parameters (higher XSS value, fewer total scans)
     param_urls = [url for url in all_targets if "?" in url] # Extracts the urls with parameters so they go first
     non_param_urls = [u for u in all_targets if "?" not in u] # Then gets the non parameter oens 
+    
     # Creates an ordered list of urls
     ordered = param_urls + non_param_urls
+    
     # Lowers the amount of urls if they are over the maxinum number of targets
     scan_list = ordered[:MAX_SCAN_TARGETS] if MAX_SCAN_TARGETS is not None else ordered
+    
     # Prints the unique information
     print(f"[✓] Found {len(all_targets)} unique paths, selecting {len(scan_list)} for Dalfox scanning.")
 
     # Outputs the scan has started
+    
     print("\n[+] Running Dalfox scan")
+    
     # max_workers kept low to reduce noisy traffic patterns
     with ThreadPoolExecutor(max_workers=MAX_DALFOX_THREADS) as executor:
         # Runs the exceutor scan
@@ -231,6 +268,7 @@ def main():
     
     # Calculates the elaspsed time
     elapsed = time.perf_counter() - start_time
+    
     # Outputs the final infromation
     print(f"\n[✓] Scan Complete in {elapsed:.2f} seconds.")
     print(f"[✓] Total unique vulnerabilities found: {len(scanner.results)}")
