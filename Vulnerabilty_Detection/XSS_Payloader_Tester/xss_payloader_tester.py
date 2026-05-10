@@ -39,9 +39,9 @@ class XSSDetection:
 
         try:
             # Opens the file
-            with open("../../Resources/user_agent_strings.txt", "r") as f:
+            with open("../../Resources/user_agent_strings.txt", "r") as file:
                 # Extracts the user agents as a list
-                user_agents = [ua.strip() for ua in f if ua.strip()]
+                user_agents = [user_agent.strip() for user_agent in file if user_agent.strip()]
 
             # Selects a random index
             user_agent = random.choice(user_agents)
@@ -173,13 +173,13 @@ class XSSDetection:
     # Method to log result
     def _log_result(self, xtype, url, payload, status, param):
         
-        # Logs the signature
+        # Stores the the signature
         sig = f"{xtype}-{url}-{param}-{payload}"
         
         # Uses the results lock to log the data
         with self.results_lock:
             # Checks if the data is not incomplete
-            if not any(f"{r['type']}-{r['parameter']}-{r['payload']}" == sig for r in self.results):
+            if not any(f"{result['type']}-{result['parameter']}-{result['payload']}" == sig for result in self.results):
         
                 # Stores the entry
                 res_entry = {"type": xtype, "url": url, "parameter": param, "payload": payload, "status": status}
