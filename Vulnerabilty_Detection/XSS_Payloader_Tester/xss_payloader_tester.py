@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs, unquote
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+import random
 
 # Creates the object for the print lock
 print_lock = Lock()
@@ -34,58 +35,67 @@ class XSSDetection:
 
     # Method to craft the headers
     def get_headers(self):
-        # Returns a header
-        return {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-
-    # Method of crawl the website
-    def crawl(self, url, visited=None):
-        
-        # Checks if visited is none and sets the visited to a set
-        if visited is None: visited = set()
-        
-        # Parses the url
-        parsed = urlparse(url)
-        
-        # Checks if the url is visited or the domain is not in parsed
-        if url in visited or self.target_domain not in parsed.netloc:
-            # Returns visited
-            return visited
-        
-        # Checks for if any of the extentions are 
-        if any(parsed.path.lower().endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.pdf', '.woff', '.svg']):
-            # Returns visited
-            return visited
-
-        # Outputs the page being crawled
-        with print_lock:
-            print(f"[*] Crawling: {url}")
-        # Adds the url to visited
-        visited.add(url)
+        """Function to get the user headers"""
 
         try:
-            # Gets the response to the url 
-            res = self.session.get(url, headers=self.get_headers(), timeout=7)
+            # Opens the file
+            with open("../../Resources/user_agent_strings.txt", "r") as f:
+                # Extracts the user agents as a list
+                user_agents = [ua.strip() for ua in f if ua.strip()]
+
+            # Selects a random index
+            user_agent = random.choice(user_agents)
+
+            return user_agent
+        except:
+            # Returns a header
+            return {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+
+    # Function to run katana
+    def run_katana(self, targets):
+        """Crawl for hidden endpoints"""
         
-            # Checks if the status code is 200 and is html page
-            if res.status_code == 200 and 'text/html' in res.headers.get('Content-Type', ''):
+        # Checks if katana is installed 
+        if not shutil.which("katana"): return []
         
-                # Creates a soup object
-                soup = BeautifulSoup(res.text, 'html.parser')
+        # Empty list to store discovered urls
+        discovered = []
+
+        # Outputs katana is starting
+        print(f"[*] Starting Katana deep crawl...")
+
+        # Loops over the targets in targets
+        for target in targets:
+            
+            # Formats the target
+            formatted_target = target if "://" in target else f"http://{target}"
+            
+            try:
+                # Gets the result for the targe
+                result = subprocess.run(["katana", "-u", formatted_target, "-depth", "3", "-silent", "-nc", "-jc"], capture_output=True, text=True)
+                
+                # Adds the results to the discovered list
+                discovered.extend([line.strip() for line in result.stdout.splitlines() if line.strip()])
+            except: continue # Continues if there isnt anything
         
-                # Loops over the link tags
-                for link in soup.find_all('a', href=True):
-                    # Creates a new url and crawls recursivley
-                    full_url = urljoin(url, link['href']).split('#')[0]
-                    self.crawl(full_url, visited)
+        return list(set(discovered)) # Returns a list without duplicates
+    
+    def run_subfinder(self):
+        """Subdomain discovery function using subfinder"""
+
+        # Outputs the program is discovering subdomains
+        print(f"[*] Discovering subdomains for {self.target_domain}...")
         
-        # Passs an exception
-        except: pass
+        # Gets the result of the scan
+        result = subprocess.run(["subfinder", "-d", self.target_domain, "-silent"], capture_output=True, text=True)
         
-        # Returns visited
-        return visited
+        # Returns the domains
+        return [line for line in result.stdout.splitlines() if line]
 
     # Method to run dalfox
     def run_dalfox(self, target_url):
+        """Runs dalfox to detect vulnerabilities with XSS"""
+
         # Checks if dalfox path exists
         if not os.path.exists(str(self.dalfox_path)): return
 
@@ -220,8 +230,11 @@ def main():
 
     print(f"\n[+] Crawling {target}")
     
+    # Checks for subdomains
+    domains = scanner.run_subfinder()
+
     # Stores the discovered urls from the target
-    discovered_urls = scanner.crawl(target)
+    discovered_urls = scanner.run_katana(domains)
     
     # Stores the unique paths found
     unique_paths = {}
