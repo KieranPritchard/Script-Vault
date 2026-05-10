@@ -1,4 +1,5 @@
 import subprocess
+import shutil
 
 # Function to run katana
 def run_katana(targets):
@@ -16,13 +17,18 @@ def run_katana(targets):
     # Loops over the targets in targets
     for target in targets:
         # Formats the target
-        fmt = target if "://" in t else f"http://{t}"
+        formatted_target = target if "://" in target else f"http://{target}"
+        
         try:
+        
             # Gets the result for the targe
-            result = subprocess.run(["katana", "-u", fmt, "-depth", "3", "-silent", "-nc", "-jc"], capture_output=True, text=True)
+            result = subprocess.run(["katana", "-u", formatted_target, "-depth", "3", "-silent", "-nc", "-jc"], capture_output=True, text=True)
+        
             # Adds the results to the discovered list
             discovered.extend([line.strip() for line in result.stdout.splitlines() if line.strip()])
+        
         except: continue # Continues if there isnt anything
+    
     return list(set(discovered)) # Returns a list without duplicates
 
 def run_subfinder(domain):
@@ -42,15 +48,21 @@ def run_subfinder(domain):
 
 
 def scan_commix(endpoints):
+    """Runs a commix scan to detect command injection"""
+    
+    # Checks if there endpoints in the parameters
     if endpoints:
-        print(f"[*] Passing {len(all_endpoints)} endpoints to Commix...")
+        # Outputs endpoints are being passed into commix
+        print(f"[*] Passing {len(endpoints)} endpoints to Commix...")
+    
         # Join endpoints by newline to pass to Commix via stdin
-        input_data = "\n".join(all_endpoints)
+        input_data = "\n".join(endpoints)
         
         # -m tells commix to read multiple targets from stdin (-)
         commix_cmd = ["commix", "--batch", "-m", "-"]
         subprocess.run(commix_cmd, input=input_data, text=True)
     else:
+        # Outputs there are no endpoints to scan
         print("[!] No endpoints discovered to test.")
 
 def main():
