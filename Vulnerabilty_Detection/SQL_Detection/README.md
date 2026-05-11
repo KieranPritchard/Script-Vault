@@ -4,72 +4,90 @@
 
 ### Objective
 
-The goal was to create an automated security tool that maps a website's entire directory structure and tests every discovered page for SQL injection. By combining Recursive Crawling with Heuristic Analysis, the script provides a comprehensive view of how many pages on a site are vulnerable to data exfiltration.
+The goal was to create an automated security tool that maps a website's entire attack surface and tests every discovered endpoint for SQL injection. By combining **Subdomain Discovery** (subfinder), **Deep Crawling** (katana), and **Automated Exploitation Testing** (sqlmap), the script provides a comprehensive view of how many endpoints on a domain are vulnerable to SQL injection.
 
 ### Features
 
-* **Recursive Attack Surface Mapping:** Implements a crawler that follows internal <a> tags to discover every page within a domain, ensuring no hidden parameters are missed.
+* **Subdomain Discovery:** Uses subfinder to enumerate all subdomains under the target domain, expanding the attack surface beyond the primary host.
 
-* **Intelligent Scope Control:** Automatically restricts the crawl to the target domain to prevent the scanner from "wandering" onto external websites like Google or Facebook.
+* **Deep Endpoint Crawling:** Uses katana with JavaScript crawling to discover endpoints, hidden parameters, and dynamic paths across all discovered subdomains.
 
-* **Baseline-Adjusted Detection:** Establishes a mathematical "Noise Threshold" for the site to distinguish between server errors and dynamic page content.
+* **Safe Mode for Stealth:** Includes a dedicated "Safe Mode" that throttles requests (via --delay), lowers risk levels, and uses single-threading to avoid WAF detection and server overload.
 
-* **Multi-Vector Scanning:** Simultaneously tests for Error-based, Boolean-based, Time-based, and Header-based SQLi.
+* **Authenticated Scanning:** Supports passing session cookies to perform deep crawling and injection testing on authenticated areas of an application.
 
-* **Automated POST Discovery:** Parses HTML forms on every crawled page and tests them for injection vulnerabilities.
+* **Structured Reporting:** Exports all findings to a structured CSV file (`sql_injection_results.csv`) for easy integration into professional reports. Output is kept silent to focus on the final data.
 
 ### Technologies and Tools Used
 
 * **Language:** Python
-* **Frameworks/Librarys:** requests, BeautifulSoup4 (Parsing & Crawling), difflib (Fuzzy Logic), urllib.parse.
+* **External Tools:** sqlmap (SQL injection testing), katana (endpoint crawling), subfinder (subdomain discovery)
+* **Libraries:** subprocess, csv, urllib.parse, concurrent.futures (threading)
 
 ### Challenges Faced
 
-Crawling Depth & Redundancy: Initially, the crawler would get stuck in infinite loops or re-visit the same pages multiple times. I solved this by implementing a visited set to track processed URLs and using urljoin to normalize relative paths into absolute URLs.
+**Attack Surface Discovery:** A single-page crawl misses the vast majority of injectable endpoints. By integrating subfinder for subdomain enumeration and katana for deep JavaScript-aware crawling, the tool now discovers endpoints that a simple HTML scraper would never find.
 
-Quantifying the Impact: A major problem was figuring out the scale of a vulnerability. I added a crawling phase specifically to quantify the total attack surface. This allowed the script to report not just if a site is vulnerable, but exactly how many pages are affected, giving a much better picture of the risk level.
+**sqlmap Output Parsing:** sqlmap uses specific output strings like `"injectable"`, `"the back-end DBMS is"`, and `"sqlmap identified the following injection point"` to indicate confirmed vulnerabilities. Early versions checked for incorrect keywords and missed all detections. The fix involved researching sqlmap's actual output format and implementing dual-source detection (stdout + log files).
 
-Noise Thresholds: Dynamic pages (like those with changing timestamps) were triggering false positives. I implemented a baseline sampling method to calculate a similarity ratio, ensuring the Boolean-based scanner only triggers when a significant, logic-driven change occurs.
+**Scan Performance:** sqlmap is inherently slow due to its thorough testing methodology. The solution caps concurrent processes at 2 and limits total targets to 30 (configurable), with per-process timeouts to prevent hangs.
 
 ### Outcome
 
-The tool is now a full-cycle security auditor. It begins with discovery, moves to vulnerability analysis, and ends with a detailed report on the domain's overall health. It successfully identifies the "Blast Radius" of a SQLi flaw by showing how many endpoints are susceptible to the same attack vector.
+The tool now operates as a full-pipeline SQL injection auditor: subdomain discovery → deep crawling → automated sqlmap testing → structured CSV reporting. It successfully identifies SQL injection vulnerabilities with injection type classification, DBMS fingerprinting, and payload proof-of-concept capture.
 
 
 ## How To Use Script
 
 1. **Set Up Your Environment**
 
-* Ensure Python 3 is installed.
+   * Ensure Python 3 is installed.
 
-* Install dependencies:
+   * Install the required external tools:
 
-```Bash
-pip install requests beautifulsoup4
-```
-2. Run the Suite
+   ```Bash
+   # sqlmap
+   brew install sqlmap
 
-```Bash
-python3 main_scanner.py
-```
-3. Script Behavior
+   # katana (Go required)
+   go install github.com/projectdiscovery/katana/cmd/katana@latest
 
-* Discovery Phase: Enter a URL. The script will recursively visit every linked page it can find on that domain.
+   # subfinder (Go required)
+   go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+   ```
 
-* Analysis Phase: Once discovery is complete, the script iterates through every found URL.
+2. **Run the Scanner**
 
-* Vulnerability Check: For each URL, it establishes a baseline and runs the full battery of SQLi tests.
+   ```Bash
+   python3 sql_injection_detection.py
+   ```
 
-* Final Reporting: The script outputs its findings in real-time, providing an sqlmap recommendation if vulnerabilities are confirmed.
+3. **Input Prompts**
 
-4. Review Results
+   * **Target URL:** The root domain or specific page you want to audit.
+   * **Session Cookie:** (Optional) Paste your browser session cookie to scan behind logins.
+   * **Safe Mode:** (Y/n) Choose "Y" for stealthy, throttled scanning or "n" for aggressive, multi-threaded testing.
 
-```Plaintext
-[*] Discovery complete. Scanning 12 pages for SQLi...
+4. **Script Behavior**
 
---- Scanning: https://example.com/products.php?id=5 ---
-[*] Testing for Error-based SQLi...
-[!] VULNERABLE: Error-based found on https://example.com/products.php?id=5' (Matched: SQL syntax)
+   * **Discovery Phase:** The script discovers subdomains via subfinder and crawls all in-scope paths with katana.
+   * **Prioritisation:** Deduplicates paths and prioritises URLs with query parameters.
+   * **Analysis Phase:** Runs sqlmap with the selected safety profile. Advanced WAF evasion (`space2comment`, `between`, `randomcase`) is always enabled.
+   * **Silent Output:** To maintain professional clarity, terminal output is minimized. The final source of truth is the CSV report.
 
-[✓] Finished in 42.15 seconds
-```
+5. **Review Results**
+
+   Once complete, open `sql_injection_results.csv` to view the findings, including Proof of Concepts (PoC) and DBMS details.
+
+5. **Configuration**
+
+   The following constants at the top of the script can be adjusted:
+
+   | Variable | Default | Description |
+   |---|---|---|
+   | `MAX_SCAN_TARGETS` | 30 | Maximum URLs sent to sqlmap |
+   | `MAX_SQLMAP_THREADS` | 1 | Concurrent sqlmap processes (Safe Mode) |
+   | `SQLMAP_TIMEOUT` | 300 | Per-process timeout (seconds) |
+   | `DEFAULT_LEVEL` | 2 | sqlmap thoroughness in Safe Mode |
+   | `DEFAULT_RISK` | 1 | sqlmap aggressiveness in Safe Mode |
+   | `DEFAULT_DELAY` | 1 | Delay between requests in Safe Mode |
