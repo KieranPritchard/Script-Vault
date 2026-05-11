@@ -1,100 +1,293 @@
+import os
 import subprocess
 import shutil
+import csv
+import time
+import random
+from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
-# Function to run katana
-def run_katana(targets):
-    """Crawl for hidden endpoints"""
-    
-    # Checks if katana is installed 
-    if not shutil.which("katana"): return []
-    
-    # Empty list to store discovered urls
-    discovered = []
+# Creates the object for the print lock
+print_lock = Lock()
 
-    # Outputs katana is starting
-    print(f"[*] Starting Katana deep crawl...")
+# Global tuning knobs for performance and stealth
+MAX_SCAN_TARGETS = 30           # Max URLs that will be sent to commix (None = scan everything we find)
+MAX_COMMIX_THREADS = 2          # Parallel commix processes
+COMMIX_TIMEOUT = 300            # Per-process timeout in seconds
 
-    # Loops over the targets in targets
-    for target in targets:
-        # Formats the target
-        formatted_target = target if "://" in target else f"http://{target}"
-        
+# Class to store the detection logic
+class CommandInjectionDetection:
+    def __init__(self, target_url, cookie="", output_dir="commix_reports"):
+        self.target_url = target_url                    # Stores the target url
+        self.cookie = cookie                            # Stores the session cookie
+        self.target_domain = urlparse(target_url).netloc  # Sets the target domain
+        self.output_dir = output_dir                    # Stores the output directory for commix logs
+        self.results = []                               # Stores the results
+        self.results_lock = Lock()                      # Creates a lock for the results
+
+        # Ensure the output directory exists
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+
+    # Function to run subfinder
+    def run_subfinder(self):
+        """Subdomain discovery function using subfinder"""
+
+        # Checks if subfinder is installed
+        if not shutil.which("subfinder"):
+            print("[!] subfinder not found, skipping subdomain discovery.")
+            return [self.target_domain]
+
+        # Outputs the program is discovering subdomains
+        print(f"[*] Discovering subdomains for {self.target_domain}...")
+
+        # Gets the result of the scan
+        result = subprocess.run(
+            ["subfinder", "-d", self.target_domain, "-silent"],
+            capture_output=True, text=True
+        )
+
+        # Extracts the domains from the results
+        domains = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+        # Always include the original target domain
+        if self.target_domain not in domains:
+            domains.insert(0, self.target_domain)
+
+        # Outputs the found domains
+        print(f"[✓] Found {len(domains)} domains (including subdomains).")
+
+        return domains
+
+    # Function to run katana
+    def run_katana(self, targets):
+        """Crawl for hidden endpoints using katana"""
+
+        # Checks if katana is installed
+        if not shutil.which("katana"):
+            print("[!] katana not found, skipping deep crawl.")
+            return []
+
+        # Empty list to store discovered urls
+        discovered = []
+
+        # Outputs katana is starting
+        print(f"[*] Starting Katana deep crawl...")
+
+        # Loops over the targets in targets
+        for target in targets:
+
+            # Formats the target
+            formatted_target = target if "://" in target else f"http://{target}"
+
+            try:
+                # Optimized katana command for speed
+                katana_cmd = ["katana", "-u", formatted_target, "-depth", "3", "-silent", "-nc", "-jc", "-concurrency", "25"]
+                
+                # Adds cookie to katana request if provided
+                if self.cookie:
+                    katana_cmd.extend(["-H", f"Cookie: {self.cookie}"])
+                
+                # Gets the result for the target
+                result = subprocess.run(
+                    katana_cmd,
+                    capture_output=True, text=True
+                )
+
+                # Adds the results to the discovered list
+                discovered.extend([line.strip() for line in result.stdout.splitlines() if line.strip()])
+            except:
+                continue  # Continues if there isnt anything
+
+        # Filter URLs to only keep those within the target domains
+        in_scope_urls = []
+        for url in discovered:
+            try:
+                netloc = urlparse(url).netloc
+                # Ensure it belongs to one of our target domains
+                if any(netloc == d or netloc.endswith("." + d) for d in targets):
+                    in_scope_urls.append(url)
+            except:
+                pass
+
+        # Returns a list without duplicates
+        print(f"[✓] Katana discovered {len(set(in_scope_urls))} unique in-scope URLs.")
+        return list(set(in_scope_urls))
+
+    # Method to run commix
+    def run_commix(self, target_url):
+        """Runs commix to detect command injection vulnerabilities"""
+
+        # Constructs the commix command
+        command = [
+            "commix",
+            "--url", target_url,
+            "--batch",                              # No interactive prompts
+            "--output-dir", self.output_dir,         # Save logs and payloads
+            "--flush-session",                      # Clear previous session data
+        ]
+
+        if self.cookie:
+            command.extend(["--cookie", self.cookie])
+
         try:
-        
-            # Gets the result for the targe
-            result = subprocess.run(["katana", "-u", formatted_target, "-depth", "3", "-silent", "-nc", "-jc"], capture_output=True, text=True)
-        
-            # Adds the results to the discovered list
-            discovered.extend([line.strip() for line in result.stdout.splitlines() if line.strip()])
-        
-        except: continue # Continues if there isnt anything
-    
-    return list(set(discovered)) # Returns a list without duplicates
+            # Runs the commix process
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors='ignore',
+                timeout=COMMIX_TIMEOUT
+            )
 
-def run_subfinder(domain):
-    """Subdomain discovery (skips if port is provided in domain string)"""
-    
-    # Checks if domain has a port number
-    if ":" in domain: return []
+            output = result.stdout
 
-    # Outputs the program is discovering subdomains
-    print(f"[*] Discovering subdomains for {domain}...")
-    
-    # Gets the result of the scan
-    result = subprocess.run(["subfinder", "-d", domain, "-silent"], capture_output=True, text=True)
-    
-    # Returns the domains
-    return [line for line in result.stdout.splitlines() if line]
+            # Parses the output for vulnerability indicators
+            is_vulnerable = self._parse_commix_output(output, target_url)
 
+            # Log as Not Vulnerable if no indicators were found
+            if not is_vulnerable:
+                self._log_result("N/A", target_url, "N/A", "Not Vulnerable")
 
-def scan_commix(endpoints):
-    """Runs a commix scan to detect command injection"""
-    
-    # Checks if there endpoints in the parameters
-    if endpoints:
-        # Outputs endpoints are being passed into commix
-        print(f"[*] Passing {len(endpoints)} endpoints to Commix...")
-    
-        # Join endpoints by newline to pass to Commix via stdin
-        input_data = "\n".join(endpoints)
-        
-        # -m tells commix to read multiple targets from stdin (-)
-        commix_cmd = ["commix", "--batch", "-m", "-"]
-        subprocess.run(commix_cmd, input=input_data, text=True)
-    else:
-        # Outputs there are no endpoints to scan
-        print("[!] No endpoints discovered to test.")
+        except subprocess.TimeoutExpired:
+            self._log_result("N/A", target_url, "N/A", "Timeout")
+        except Exception as e:
+            self._log_result("N/A", target_url, "N/A", "Error")
+
+    # Method to parse commix stdout for vulnerability indicators
+    def _parse_commix_output(self, output, target_url):
+        """Parses commix output for confirmed vulnerability indicators"""
+
+        output_lower = output.lower()
+
+        # Commix indicators for vulnerability
+        hit_indicators = [
+            "is vulnerable",
+            "the target is vulnerable",
+            "vulnerability found",
+            "os command injection"
+        ]
+
+        if any(indicator in output_lower for indicator in hit_indicators):
+            # Try to extract injection type or POC if possible
+            # Commix output is less structured than sqlmap for this but we can try
+            injection_type = "Command Injection"
+            poc = "See commix logs"
+            
+            for line in output.splitlines():
+                if "payload:" in line.lower():
+                    poc = line.split(":", 1)[-1].strip()
+                    break
+
+            self._log_result(injection_type, target_url, poc, "Vulnerable")
+            return True
+        return False
+
+    # Method to log result
+    def _log_result(self, vuln_type, url, poc, status):
+        """Thread-safe result logging with deduplication"""
+
+        sig = f"{vuln_type}-{url}"
+
+        with self.results_lock:
+            if not any(f"{r['Vulnerability_Type']}-{r['Affected_URL']}" == sig for r in self.results):
+                res_entry = {
+                    "Vulnerability_Type": vuln_type,
+                    "Affected_URL": url,
+                    "Proof_Of_Concept": poc,
+                    "Status": status
+                }
+                self.results.append(res_entry)
+
+    # Method to save results to csv
+    def save_results_to_csv(self, filename="command_injection_results.csv"):
+        """Exports findings to a CSV file"""
+
+        if not self.results:
+            print("[!] No scans completed to export.")
+            return
+
+        keys = ["Vulnerability_Type", "Affected_URL", "Proof_Of_Concept", "Status"]
+
+        with open(filename, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(self.results)
+
+        print(f"[✓] Final report saved to {filename}")
+
+    # Method to save vulnerable targets to txt
+    def save_vulnerable_targets_to_txt(self, filename="vulnerable_targets.txt"):
+        """Exports only the vulnerable URLs to a text file"""
+
+        vulnerable_urls = [r["Affected_URL"] for r in self.results if r["Status"] == "Vulnerable"]
+
+        if not vulnerable_urls:
+            return
+
+        with open(filename, "w") as f:
+            for url in vulnerable_urls:
+                f.write(f"{url}\n")
+
+        print(f"[✓] Vulnerable targets saved to {filename}")
+
 
 def main():
-    # Allows the user to enter a target
-    target = input("Enter a target (e.g. 'example.com'): ").strip()
+    print("--- Command Injection Detection Scanner (commix + katana + subfinder) ---\n")
 
-    # Runs subfinder to find subdomains
-    subdomains = run_subfinder(target)
+    target = input("[+] Enter Target URL: ").strip()
+    cookie = input("[+] Enter Session Cookie (optional, press Enter to skip): ").strip()
 
-    # Checks if there is not any subdomains
-    if not subdomains:
-        # Fallback list
-        subdomains = [target]
+    if not target.startswith("http"):
+        print("[!] Invalid URL. Make sure it includes http:// or https://")
+        return
 
-    # Stores all endpoints
-    all_endpoints = []
+    start_time = time.perf_counter()
+    scanner = CommandInjectionDetection(target, cookie=cookie)
 
-    # Loops over each subdomain with katan
-    for subdomain in subdomains:
-        # Gets the results from katana
-        results = run_katana(subdomain)
+    print(f"\n[+] Starting reconnaissance on {scanner.target_domain}\n")
 
-        # Adds the results to the
-        all_endpoints.extend(results)
+    # Phase 1: Subdomain discovery
+    domains = scanner.run_subfinder()
 
-    if all_endpoints:
-        print(f"[*] Passing {len(all_endpoints)} endpoints to Commix...")
-        # Join endpoints by newline to pass to Commix via stdin
-        input_data = "\n".join(all_endpoints)
-        
-        # -m tells commix to read multiple targets from stdin (-)
-        commix_cmd = ["commix", "--batch", "-m", "-"]
-        subprocess.run(commix_cmd, input=input_data, text=True)
-    else:
-        print("[!] No endpoints discovered to test.")
+    # Phase 2: Deep crawl
+    discovered_urls = scanner.run_katana(domains)
+
+    if target not in discovered_urls:
+        discovered_urls.insert(0, target)
+
+    # Phase 3: Deduplicate
+    unique_paths = {}
+    for url in discovered_urls:
+        p = urlparse(url)
+        if p.path not in unique_paths:
+            unique_paths[p.path] = url
+
+    all_targets = list(unique_paths.values())
+    
+    # Prioritise param URLs
+    param_urls = [url for url in all_targets if "?" in url]
+    non_param_urls = [u for u in all_targets if "?" not in u]
+    ordered = param_urls + non_param_urls
+
+    scan_list = ordered[:MAX_SCAN_TARGETS] if MAX_SCAN_TARGETS is not None else ordered
+
+    print(f"[✓] Found {len(all_targets)} unique paths, selecting {len(scan_list)} for commix scanning.")
+    print(f"\n[+] Running commix scan...\n")
+
+    with ThreadPoolExecutor(max_workers=MAX_COMMIX_THREADS) as executor:
+        executor.map(scanner.run_commix, scan_list)
+
+    scanner.save_results_to_csv()
+    scanner.save_vulnerable_targets_to_txt()
+
+    elapsed = time.perf_counter() - start_time
+    vulnerable_hits = [r for r in scanner.results if r["Status"] == "Vulnerable"]
+    print(f"\n[✓] Scan Complete in {elapsed:.2f} seconds.")
+    print(f"[✓] CSV report contains {len(scanner.results)} scan records ({len(vulnerable_hits)} vulnerabilities).")
+
+
+if __name__ == "__main__":
+    main()

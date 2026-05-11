@@ -177,11 +177,17 @@ class XSSDetection:
         
         # Uses the results lock to log the data
         with self.results_lock:
-            # Checks if the data is not incomplete
-            if not any(f"{result['type']}-{result['parameter']}-{result['payload']}" == sig for result in self.results):
+            # Checks for duplicates using the signature
+            if not any(f"{r['Vulnerability_Type']}-{r['Affected_URL']}-{r['Parameter']}-{r['Proof_Of_Concept']}" == sig for r in self.results):
         
                 # Stores the entry
-                res_entry = {"type": xtype, "url": url, "parameter": param, "payload": payload, "status": status}
+                res_entry = {
+                    "Vulnerability_Type": xtype,
+                    "Affected_URL": url,
+                    "Parameter": param,
+                    "Proof_Of_Concept": payload,
+                    "Status": status
+                }
         
                 # Adds the entry to 
                 self.results.append(res_entry)
@@ -194,13 +200,15 @@ class XSSDetection:
 
     # Method to save results to csv
     def save_results_to_csv(self, filename="xss_results.csv"):
+        """Exports findings to a CSV file"""
+
         # Checks for results
         if not self.results:
-            print("[!] No vulnerabilities found to export.")
+            print("[!] No scans completed to export.")
             return
         
         # Creates the keys
-        keys = ["type", "url", "parameter", "payload", "status"]
+        keys = ["Vulnerability_Type", "Affected_URL", "Parameter", "Proof_Of_Concept", "Status"]
         
         # Opens the file to rewrite data
         with open(filename, 'w', newline='') as f:
@@ -215,6 +223,23 @@ class XSSDetection:
         
         # Outputs the result is saved
         print(f"[✓] Final report saved to {filename}")
+
+    # Method to save vulnerable targets to txt
+    def save_vulnerable_targets_to_txt(self, filename="vulnerable_targets.txt"):
+        """Exports only the vulnerable URLs to a text file"""
+
+        # Filters for vulnerable results
+        vulnerable_urls = [r["Affected_URL"] for r in self.results if r["Status"] == "Vulnerable"]
+
+        if not vulnerable_urls:
+            return
+
+        # Writes the URLs to the file
+        with open(filename, "w") as f:
+            for url in vulnerable_urls:
+                f.write(f"{url}\n")
+
+        print(f"[✓] Vulnerable targets saved to {filename}")
 
 def main():
     # ALlows the target to be inputted
@@ -275,8 +300,9 @@ def main():
         # Runs the exceutor scan
         executor.map(scanner.run_dalfox, scan_list)
 
-    # Saves the results to csv
+    # Saves the results
     scanner.save_results_to_csv()
+    scanner.save_vulnerable_targets_to_txt()
     
     # Calculates the elaspsed time
     elapsed = time.perf_counter() - start_time

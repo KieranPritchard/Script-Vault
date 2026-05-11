@@ -16,7 +16,7 @@ MAX_SCAN_TARGETS = 30           # Max URLs that will be sent to sqlmap (None = s
 MAX_SQLMAP_THREADS = 2          # Parallel sqlmap processes (Safe: 1-2, Aggressive: 5+)
 SQLMAP_INTERNAL_THREADS = 10    # sqlmap internal threads per process (--threads)
 SQLMAP_TIMEOUT = 300            # Per-process timeout in seconds
-DEFAULT_LEVEL = 2               # Safe default level
+DEFAULT_LEVEL = 3               # Safe default level
 DEFAULT_RISK = 1                # Safe default risk
 DEFAULT_DELAY = 1               # Delay in seconds between requests (0 for aggressive)
 
