@@ -13,7 +13,8 @@ print_lock = Lock()
 
 # Global tuning knobs for performance and stealth
 MAX_SCAN_TARGETS = 30           # Max URLs that will be sent to sqlmap (None = scan everything we find)
-MAX_SQLMAP_THREADS = 1          # Defaulting to 1 for safety, 2+ for aggressive
+MAX_SQLMAP_THREADS = 2          # Parallel sqlmap processes (Safe: 1-2, Aggressive: 5+)
+SQLMAP_INTERNAL_THREADS = 10    # sqlmap internal threads per process (--threads)
 SQLMAP_TIMEOUT = 300            # Per-process timeout in seconds
 DEFAULT_LEVEL = 2               # Safe default level
 DEFAULT_RISK = 1                # Safe default risk
@@ -103,7 +104,8 @@ class SQLInjectionDetection:
             formatted_target = target if "://" in target else f"http://{target}"
 
             try:
-                katana_cmd = ["katana", "-u", formatted_target, "-depth", "3", "-silent", "-nc", "-jc"]
+                # Optimized katana command for speed
+                katana_cmd = ["katana", "-u", formatted_target, "-depth", "3", "-silent", "-nc", "-jc", "-concurrency", "25"]
                 
                 # Adds cookie to katana request if provided
                 if self.cookie:
@@ -153,13 +155,17 @@ class SQLInjectionDetection:
             "--level", str(level),
             "--risk", str(risk),
             "--delay", str(delay),                  # Pause between requests for stealth
+            "--threads", str(SQLMAP_INTERNAL_THREADS), # Internal sqlmap threading
+            "--null-connection",                    # Faster blind SQLi detection
+            "--no-cast",                            # Faster payload execution
             "--forms",                              # Test POST forms found on the page
             "--crawl=3",                            # Let sqlmap discover its own endpoints
             "--output-dir", self.output_dir,         # Save logs and payloads
             "--tamper=space2comment,between,randomcase", # Improved WAF evasion
-            "--retries", "2",                       # Retry failed requests
-            "--timeout", "15",                      # Per-request timeout
+            "--retries", "1",                       # Lower retries for speed
+            "--timeout", "10",                      # Lower timeout for speed
             "--answers", "follow=Y,keep=N,exploit=Y",
+            "--flush-session",                      # Clear previous session data for fresh scan
         ]
 
         if self.cookie:
@@ -311,15 +317,16 @@ class SQLInjectionDetection:
         # Uses the results lock to log the data
         with self.results_lock:
             # Checks for duplicates using the signature
-            if not any(f"{r['type']}-{r['url']}-{r['dbms']}" == sig for r in self.results):
+            # Checks for duplicates using the signature
+            if not any(f"{r['SQL_Injection_Type']}-{r['Affected_URL']}-{r['DBMS']}" == sig for r in self.results):
 
                 # Stores the entry
                 res_entry = {
-                    "type": sqli_type,
-                    "url": url,
-                    "poc": poc,
-                    "status": status,
-                    "dbms": dbms
+                    "SQL_Injection_Type": sqli_type,
+                    "Affected_URL": url,
+                    "Proof_Of_Concept": poc,
+                    "Status": status,
+                    "DBMS": dbms
                 }
 
                 # Adds the entry to results
@@ -335,7 +342,7 @@ class SQLInjectionDetection:
             return
 
         # Creates the keys
-        keys = ["type", "url", "poc", "status", "dbms"]
+        keys = ["SQL_Injection_Type", "Affected_URL", "Proof_Of_Concept", "Status", "DBMS"]
 
         # Opens the file to write data
         with open(filename, 'w', newline='') as f:
@@ -350,6 +357,23 @@ class SQLInjectionDetection:
 
         # Outputs the result is saved
         print(f"[✓] Final report saved to {filename}")
+
+    # Method to save vulnerable targets to txt
+    def save_vulnerable_targets_to_txt(self, filename="vulnerable_targets.txt"):
+        """Exports only the vulnerable URLs to a text file"""
+
+        # Filters for vulnerable results
+        vulnerable_urls = [r["Affected_URL"] for r in self.results if r["Status"] == "Vulnerable"]
+
+        if not vulnerable_urls:
+            return
+
+        # Writes the URLs to the file
+        with open(filename, "w") as f:
+            for url in vulnerable_urls:
+                f.write(f"{url}\n")
+
+        print(f"[✓] Vulnerable targets saved to {filename}")
 
 
 def main():
@@ -415,19 +439,20 @@ def main():
     print(f"\n[+] Running sqlmap scan (this may take a while — sqlmap is thorough)\n")
 
     # Throttled to avoid WAF bans and resource exhaustion
-    threads = MAX_SQLMAP_THREADS if safe_mode else 2
+    threads = MAX_SQLMAP_THREADS if safe_mode else 5
     with ThreadPoolExecutor(max_workers=threads) as executor:
         # Runs the executor scan
         executor.map(scanner.run_sqlmap, scan_list)
 
     # Saves the results to csv
     scanner.save_results_to_csv()
+    scanner.save_vulnerable_targets_to_txt()
 
     # Calculates the elapsed time
     elapsed = time.perf_counter() - start_time
 
     # Outputs the final information
-    vulnerable_hits = [r for r in scanner.results if r["status"] == "Vulnerable"]
+    vulnerable_hits = [r for r in scanner.results if r["Status"] == "Vulnerable"]
     print(f"\n[✓] Scan Complete in {elapsed:.2f} seconds.")
     print(f"[✓] CSV report is the only output and contains {len(scanner.results)} scan records ({len(vulnerable_hits)} vulnerabilities).")
 

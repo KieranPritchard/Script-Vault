@@ -16,7 +16,9 @@ The goal was to create an automated security tool that maps a website's entire a
 
 * **Authenticated Scanning:** Supports passing session cookies to perform deep crawling and injection testing on authenticated areas of an application.
 
-* **Structured Reporting:** Exports all findings to a structured CSV file (`sql_injection_results.csv`) for easy integration into professional reports. Output is kept silent to focus on the final data.
+* **Structured Reporting:** Exports all findings to a structured CSV file (`sql_injection_results.csv`) and confirmed vulnerable URLs to a simple text file (`vulnerable_targets.txt`) for easy post-processing.
+
+* **High-Performance Optimization:** Utilizes parallel process execution, internal `sqlmap` multi-threading (`--threads=10`), and optimized connection flags (`--null-connection`, `--no-cast`) to maximize scan speed without sacrificing thoroughness.
 
 ### Technologies and Tools Used
 
@@ -77,7 +79,9 @@ The tool now operates as a full-pipeline SQL injection auditor: subdomain discov
 
 5. **Review Results**
 
-   Once complete, open `sql_injection_results.csv` to view the findings, including Proof of Concepts (PoC) and DBMS details.
+   Once complete, two files are generated:
+   * **`sql_injection_results.csv`**: Full details including injection type, PoC, and DBMS.
+   * **`vulnerable_targets.txt`**: A clean list of only the vulnerable URLs for use with other tools.
 
 5. **Configuration**
 
@@ -86,7 +90,8 @@ The tool now operates as a full-pipeline SQL injection auditor: subdomain discov
    | Variable | Default | Description |
    |---|---|---|
    | `MAX_SCAN_TARGETS` | 30 | Maximum URLs sent to sqlmap |
-   | `MAX_SQLMAP_THREADS` | 1 | Concurrent sqlmap processes (Safe Mode) |
+   | `MAX_SQLMAP_THREADS` | 2 | Parallel processes (Safe Mode) |
+   | `SQLMAP_INTERNAL_THREADS` | 10 | Threads per sqlmap process |
    | `SQLMAP_TIMEOUT` | 300 | Per-process timeout (seconds) |
    | `DEFAULT_LEVEL` | 2 | sqlmap thoroughness in Safe Mode |
    | `DEFAULT_RISK` | 1 | sqlmap aggressiveness in Safe Mode |
