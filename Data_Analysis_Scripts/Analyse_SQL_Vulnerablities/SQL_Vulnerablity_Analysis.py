@@ -1,4 +1,24 @@
 import os
+import pandas as pd
+
+def read_and_clean_data(file_path):
+    # Reads in the data using pandas
+    df = pd.read_csv(file_path)
+
+    # Outputs information about the data imported
+    print(f"Head:\n{df.head()}")
+    print(f"Info:\n{df.info()}")
+    print(f"Description:\n{df.describe()}")
+    print(f"Missing Values:\n{df.isna().sum()}")
+
+    # Replaces data with n/a with None
+    df.replace("N/A", None)
+
+    # Drops the rows with null values
+    df.dropna(0)
+
+    # Returns the data
+    return df
 
 def main():
     # Loops while the input is incorrect
