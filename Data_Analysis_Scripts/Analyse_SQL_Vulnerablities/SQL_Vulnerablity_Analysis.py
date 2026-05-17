@@ -1,7 +1,10 @@
 import os
+import tldextract
 import pandas as pd
 
 def read_and_clean_data(file_path):
+    """Function to read in and clean data"""
+    
     # Reads in the data using pandas
     df = pd.read_csv(file_path)
 
@@ -18,6 +21,17 @@ def read_and_clean_data(file_path):
     df.dropna(0)
 
     # Returns the data
+    return df
+
+def enrich_data(df):
+    """Function to enrich the data"""
+
+    # Creates a new column called subdomain
+    df["Subdomain"] = df["url"].apply(
+        lambda x: tldextract.extract(x).subdomain if x else tldextract.extract(x).domain
+    )
+
+    # Returns the dataframe
     return df
 
 def main():
