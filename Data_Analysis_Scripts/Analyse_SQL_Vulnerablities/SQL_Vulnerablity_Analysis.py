@@ -1,38 +1,10 @@
 import os
+from matplotlib import pyplot as plt
 import tldextract
 import pandas as pd
 
-def read_and_clean_data(file_path):
-    """Function to read in and clean data"""
-    
-    # Reads in the data using pandas
-    df = pd.read_csv(file_path)
 
-    # Outputs information about the data imported
-    print(f"Head:\n{df.head()}")
-    print(f"Info:\n{df.info()}")
-    print(f"Description:\n{df.describe()}")
-    print(f"Missing Values:\n{df.isna().sum()}")
-
-    # Replaces data with n/a with None
-    df.replace("N/A", None)
-
-    # Drops the rows with null values
-    df.dropna(0)
-
-    # Returns the data
-    return df
-
-def enrich_data(df):
-    """Function to enrich the data"""
-
-    # Creates a new column called subdomain
-    df["Subdomain"] = df["url"].apply(
-        lambda x: tldextract.extract(x).subdomain if x else tldextract.extract(x).domain
-    )
-
-    # Returns the dataframe
-    return df
+plt.style.use("ggplot")
 
 def main():
     # Loops while the input is incorrect
@@ -52,3 +24,50 @@ def main():
             print("Please enter a actual file")
         else:
             break
+
+    # Reads in the data using pandas
+    df = pd.read_csv(file_path)
+
+    # Outputs information about the data imported
+    print(f"Head:\n{df.head()}")
+    print(f"Info:\n{df.info()}")
+    print(f"Description:\n{df.describe()}")
+    print(f"Missing Values:\n{df.isna().sum()}")
+
+    # Replaces data with n/a with None
+    df.replace("N/A", None)
+
+    # Drops the rows with null values
+    df.dropna()
+
+    # Creates a new column called subdomain
+    df["Subdomain"] = df["Affected_URL"].apply(
+        lambda x: tldextract.extract(x).subdomain if x else tldextract.extract(x).domain
+    )
+
+    # Groups the data by injection type
+    grouped_by_type = df.groupby("SQL_Injection_Type").size()
+
+    # Groups the data by subdomain
+    grouped_by_subdomain = df.groupby("Subdomain").size()
+
+    # Plots the grouped by chart first
+    grouped_by_type.plot(kind="pie", autopct='%1.1f%%')
+
+    # Adds the title
+    plt.title("SQL Injection Types Found")
+
+    plt.show()
+
+    # Plots the subdomain chart
+    grouped_by_subdomain.plot(kind="bar")
+
+    # Names the axis
+    plt.xlabel("Subdomains")
+    plt.ylabel("Number of SQLi Vulns")
+
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    main()
