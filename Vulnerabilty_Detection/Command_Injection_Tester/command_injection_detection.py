@@ -23,7 +23,7 @@ class CommandInjectionDetection:
         self.cookie = cookie                            # Stores the session cookie
         self.target_domain = urlparse(target_url).netloc  # Sets the target domain
         self.output_dir = output_dir                    # Stores the output directory for commix logs
-        self.results = []                               # Stores the results
+        self.results = {}                               # Stores the results
         self.results_lock = Lock()                      # Creates a lock for the results
 
         # Ensure the output directory exists
@@ -215,18 +215,15 @@ class CommandInjectionDetection:
         # Locks the thread intil it is finished
         with self.results_lock:
             # Checks if there is not dusplicate signatures detected
-            if not any(f"{r['Vulnerability_Type']}-{r['Affected_URL']}" == sig for r in self.results):
-                
+            # Changed to be checking if the signature already exists
+            if sig not in self.results:
                 # Creates a new entry
-                result_entry = {
+                self.results[sig] = {
                     "Vulnerability_Type": vuln_type,
                     "Affected_URL": url,
                     "Proof_Of_Concept": poc,
                     "Status": status
                 }
-
-                # Adds the entry to the results
-                self.results.append(result_entry)
 
     # Method to save results to csv
     def save_results_to_csv(self, filename="command_injection_results.csv"):
