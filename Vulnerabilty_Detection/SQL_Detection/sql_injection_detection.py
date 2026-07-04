@@ -317,20 +317,17 @@ class SQLInjectionDetection:
         # Uses the results lock to log the data
         with self.results_lock:
             # Checks for duplicates using the signature
-            # Checks for duplicates using the signature
-            if not any(f"{r['SQL_Injection_Type']}-{r['Affected_URL']}-{r['DBMS']}" == sig for r in self.results):
+            # Changed to be checking if the signature already exists
+            if sig not in self.results:
 
                 # Stores the entry
-                res_entry = {
+                self.results[sig] = {
                     "SQL_Injection_Type": sqli_type,
                     "Affected_URL": url,
                     "Proof_Of_Concept": poc,
                     "Status": status,
                     "DBMS": dbms
                 }
-
-                # Adds the entry to results
-                self.results.append(res_entry)
 
     # Method to save results to csv
     def save_results_to_csv(self, filename="sql_injection_results.csv"):
