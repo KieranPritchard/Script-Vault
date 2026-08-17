@@ -1,4 +1,7 @@
+.DS_Store
 *.DS_Store
+__pycache__/
+*.pyc
 Templates/
-/File_Management_Scripts/Rename_By_Pattern
+.env
 .ENV
