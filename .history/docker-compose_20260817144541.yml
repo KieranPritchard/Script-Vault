@@ -1,0 +1,15 @@
+services:
+  script-vault:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: script-vault
+    volumes:
+      - .:/app
+    # Network capabilities for raw socket tools (Scapy, Nmap, ARP discovery)
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    stdin_open: true
+    tty: true
+    command: /bin/bash

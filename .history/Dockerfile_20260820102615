@@ -2,8 +2,6 @@
 # out of the final image (it's ~500MB+ on its own). ---
 FROM golang:1.23-bookworm AS tools
 
-ENV GOTOOLCHAIN=auto
-
 RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
     go install -v github.com/projectdiscovery/katana/cmd/katana@latest
 
@@ -21,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     dnsutils \
     curl \
-    sqlmap \
+    
     tcpdump \
     build-essential \
     git \
